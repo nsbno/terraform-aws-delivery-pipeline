@@ -1,0 +1,18 @@
+= Pipeline Architecture
+
+== Responsibilities
+
+The principle here is to have the CI engine do the bulk of the work, and then
+
+CircleCI::
+* Responsible for the flow of integration and deployment.
+
+AWS Pipeline::
+* Responsible for actually deploying resources.
+* Check if test and stage got updated before production (IMPORTANT)
+
+
+== Related resources
+
+Check out NCSCs CI/CD security principles!
+https://www.ncsc.gov.uk/collection/developers-collection/principles/secure-the-build-and-deployment-pipeline
