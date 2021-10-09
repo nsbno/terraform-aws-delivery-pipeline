@@ -1,5 +1,74 @@
 = Pipeline Architecture
 
+[plantuml]
+....
+!include <awslib/AWSCommon>
+!include <awslib/AWSSimplified>
+!include <awslib/Compute/all>
+!include <awslib/Storage/all>
+!include <awslib/Database/DynamoDB>
+
+skinparam participant {
+    BackgroundColor AWS_BG_COLOR
+    BorderColor AWS_BORDER_COLOR
+}
+
+skinparam BoxPadding 10
+
+hide footbox
+
+box "VCS Environment" #white
+actor "Developer" as dev
+participant "GitHub" as gh
+end box
+
+box "CI Environment" #white
+participant "Continious Integration" as ci
+end box
+
+box "AWS Environment" #white
+participant "<$SimpleStorageServiceS3>\nTerraform Artifacts" as s3
+participant "<$ElasticContainerService>\nTerraform Applyer" as tf
+participant "<$DynamoDB>\nApply Order" as db
+end box
+
+dev -> gh : Push update to master
+gh -> ci : Trigger new build with deployment
+
+
+ci -> ci : Create Artifact
+ci -> s3 : Upload Artifact
+
+
+group Deploy Test
+ci -> tf : Trigger terraform apply in test
+ci -> cw : Tail logs
+tf -> s3 : Fetch artifact
+s3 -> tf : Return corresponding artifact
+tf -> db : Flag commit as deployed to test
+tf -> ci : Return Logs
+end
+
+group Deploy Prod
+ci -> tf : Trigger terraform apply in prod
+tf -> db : Check if test has been deployed first
+
+alt Test has been deployed
+
+    tf -> s3 : Fetch artifact
+    s3 -> tf : Return corresponding artifact
+    tf -> db : Flag commit as deployed to test
+    tf -> ci : Return Logs
+
+else Test has not been deployed
+
+    tf -> ci : Failure: Test has to be deployed first
+
+end
+end
+
+....
+
 == Responsibilities
 
 The principle here is to have the CI engine do the bulk of the work, and then
@@ -11,6 +80,10 @@ AWS Pipeline::
 * Responsible for actually deploying resources.
 * Check if test and stage got updated before production (IMPORTANT)
 
+== Security Conciderations
+
+* Verify the hash of the artifact for each stage.
+  The hash can't change for a deployment.
 
 == Related resources
 
