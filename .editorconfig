@@ -1,0 +1,17 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+max_line_length = 80
+tab_width = 4
+
+[{*.ad,*.adoc,*.asciidoc,.asciidoctorconfig}]
+ij_visual_guides = none
+ij_asciidoc_blank_lines_after_header = 1
+ij_asciidoc_blank_lines_keep_after_header = 1
+ij_asciidoc_formatting_enabled = true
+ij_asciidoc_one_sentence_per_line = true
