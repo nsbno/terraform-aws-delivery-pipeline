@@ -3,6 +3,15 @@ terraform {
 }
 
 /*
+ * == Artifact Storage
+ *
+ * Any artifacts being deployed will be stored here.
+ */
+resource "aws_s3_bucket" "artifacts" {
+    bucket = "${var.account_id}-${var.name_prefix}-delivery-pipeline-artifacts"
+}
+
+/*
  * == Terraform Apply Runner Cluster
  *
  * This is where the terraform container will be running.
@@ -63,6 +72,19 @@ data "aws_iam_policy_document" "ecs_allow_logging" {
     }
 }
 
+resource "aws_iam_role_policy" "allow_artifact_bucket_access" {
+    role   = aws_iam_role.deployment_task.id
+    policy = data.aws_iam_policy_document.allow_artifact_bucket_access.json
+}
+
+data "aws_iam_policy_document" "allow_artifact_bucket_access" {
+    statement {
+        effect    = "Allow"
+        actions   = ["s3:Get*", "s3:List*"]
+        resources = [aws_s3_bucket.artifacts.arn, "${aws_s3_bucket.artifacts.arn}/*"]
+    }
+}
+
 resource "aws_iam_role_policy" "allow_assume_deployment_role" {
     role   = aws_iam_role.deployment_task.id
     policy = data.aws_iam_policy_document.allow_assume_deployment_role.json
@@ -116,6 +138,7 @@ resource "aws_lambda_function" "ecs_trigger" {
             TASK_FAMILY = "delivery-pipeline"  # TODO
             SUBNETS = jsonencode(var.subnets)
             LOG_GROUP = aws_cloudwatch_log_group.ecs.name
+            ARTIFACT_BUCKET = aws_s3_bucket.artifacts.bucket
         }
     }
 }

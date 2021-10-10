@@ -1,3 +1,8 @@
+variable "account_id" {
+    description = "The ID of the account this is being published to"
+    type = string
+}
+
 variable "name_prefix" {
     type = string
 }

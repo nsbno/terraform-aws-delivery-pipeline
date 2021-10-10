@@ -46,5 +46,6 @@ module "deploymet_pipeline" {
     ]
     deployment_role = "${local.name_prefix}-trusted-deployment"
 
+    account_id = local.service_account_id
     subnets = data.aws_subnet_ids.subnets.ids
 }

@@ -82,23 +82,23 @@ def handler(event: dict, _):
     In the event, we're expecting the following values:
      * terraform_version: The version of terraform to run.
      * environment: Which environment we're deploying to.
+     * commit: A SHA-1 hash which will be used to pull from S3.
     """
     # TODO: Resolve environment name to actual account number + role name.
     # TODO: Create an container that assumes a role and runs terraform apply
-    command = [
-        "echo 'Hello World!'"
-        # "line 0",  # Download artifact from S3.
-        # "line 1",  # Assume Role
-        # "line 2",  # Init
-        # "line 3",  # Apply or Plan
+    commands = [
+        f"aws s3 cp s3://{os.environ['ARTIFACT_BUCKET']}/{event['commit']}.zip ./infrastructure.zip",
+        f"unzip infrastructure.zip",
     ]
 
-    logger.info(os.environ["SUBNETS"])
+    command = " && ".join(commands)
+
+    logger.info(command)
 
     with TaskDefinition(
         image_version=event["terraform_version"],
         entrypoint=["/bin/sh", "-c"],
-        command=command
+        command=[command]
     ) as task_definition:
         ecs_client = boto3.client("ecs")
         task_result = ecs_client.run_task(
