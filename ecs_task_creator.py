@@ -20,6 +20,7 @@ class TaskDefinition:
     entrypoint: list[str]
     command: list[str]
 
+
     task_role_arn: str = os.environ["TASK_ROLE_ARN"]
     execution_role_arn: str = os.environ["EXECUTION_ROLE_ARN"]
 
@@ -27,6 +28,7 @@ class TaskDefinition:
     image: str = os.environ["DOCKER_IMAGE"]
 
     log_group: str = os.environ["LOG_GROUP"]
+    log_prefix: str = os.environ["TASK_FAMILY"]
     log_region: str = os.environ["AWS_REGION"]
 
     compatability: str = "FARGATE"
@@ -56,8 +58,7 @@ class TaskDefinition:
                         "options": {
                             "awslogs-group": self.log_group,
                             "awslogs-region": self.log_region,
-                            # TODO: Might be usefull to use the commit hash here
-                            "awslogs-stream-prefix": self.family,
+                            "awslogs-stream-prefix": self.log_prefix,
                         },
                     }
                 },
@@ -107,10 +108,11 @@ def handler(event: dict, _):
     logger.info(command)
 
     with TaskDefinition(
-        name=f"{event['commit']}/{event['environment']}",
+        name="terraform",
         image_version=event["terraform_version"],
         entrypoint=["/bin/sh", "-c"],
-        command=[command]
+        command=[command],
+        log_prefix=f"{event['commit']}/{event['environment']}"
     ) as task_definition:
         ecs_client = boto3.client("ecs")
         task_result = ecs_client.run_task(
