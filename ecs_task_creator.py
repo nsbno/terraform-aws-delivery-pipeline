@@ -99,8 +99,8 @@ def handler(event: dict, _):
         f"aws configure set region \"{os.environ['AWS_REGION']}\"",
         f"aws configure set role_arn \"{deployment_role_arn}\"",
 
-        f"cd terraform/{event['environment']}"
-        f"terraform init"
+        f"cd terraform/{event['environment']}",
+        f"terraform init",
         f"terraform plan"
     ]
     command = " && ".join(commands)
