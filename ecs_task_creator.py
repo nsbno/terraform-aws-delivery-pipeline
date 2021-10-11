@@ -15,6 +15,7 @@ class TaskDefinition:
 
     Used to specify and create a task definition in AWS.
     """
+    name: str
     image_version: str
     entrypoint: list[str]
     command: list[str]
@@ -46,7 +47,7 @@ class TaskDefinition:
             requiresCompatibilities=[self.compatability],
             containerDefinitions=[
                 {
-                    "name": "terraform",
+                    "name": self.name,
                     "image": f"{self.image}:{self.image_version}",
                     "entryPoint": self.entrypoint,
                     "command": self.command,
@@ -106,6 +107,7 @@ def handler(event: dict, _):
     logger.info(command)
 
     with TaskDefinition(
+        name=f"{event['commit']}/{event['environment']}",
         image_version=event["terraform_version"],
         entrypoint=["/bin/sh", "-c"],
         command=[command]
