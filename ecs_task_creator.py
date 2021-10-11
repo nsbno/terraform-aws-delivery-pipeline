@@ -100,8 +100,8 @@ def handler(event: dict, _):
         f"aws configure set role_arn \"{deployment_role_arn}\"",
 
         f"cd terraform/{event['environment']}",
-        f"terraform init",
-        f"terraform plan"
+        f"terraform init -no-color",
+        f"terraform plan -no-color"
     ]
     command = " && ".join(commands)
 
