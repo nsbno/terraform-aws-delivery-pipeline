@@ -96,7 +96,7 @@ data "aws_iam_policy_document" "allow_assume_deployment_role" {
         actions   = ["sts:AssumeRole"]
         resources = formatlist(
             "arn:aws:iam::%s:role/${var.deployment_role}",
-            var.deployment_accounts
+            values(var.deployment_accounts)
         )
     }
 }
@@ -139,6 +139,8 @@ resource "aws_lambda_function" "ecs_trigger" {
             SUBNETS = jsonencode(var.subnets)
             LOG_GROUP = aws_cloudwatch_log_group.ecs.name
             ARTIFACT_BUCKET = aws_s3_bucket.artifacts.bucket
+            DEPLOY_ROLE = var.deployment_role
+            DEPLOY_ACCOUNTS = jsonencode(var.deployment_accounts)
         }
     }
 }

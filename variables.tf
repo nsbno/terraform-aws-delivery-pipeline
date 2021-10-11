@@ -20,7 +20,12 @@ variable "docker_image" {
 
 variable "deployment_accounts" {
     description = "A list of all accounts that we can deploy to"
-    type = list(string)
+    type = object({
+        service = string
+        test = string
+        stage = string
+        prod = string
+    })
 }
 
 variable "deployment_role" {

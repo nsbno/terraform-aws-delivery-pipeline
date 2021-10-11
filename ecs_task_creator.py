@@ -8,6 +8,7 @@ import boto3
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+
 @dataclass
 class TaskDefinition:
     """Task definition for any ECS container
@@ -84,13 +85,22 @@ def handler(event: dict, _):
      * environment: Which environment we're deploying to.
      * commit: A SHA-1 hash which will be used to pull from S3.
     """
-    # TODO: Resolve environment name to actual account number + role name.
-    # TODO: Create an container that assumes a role and runs terraform apply
+    accounts = json.loads(os.environ["DEPLOY_ACCOUNTS"])
+    selected_account = accounts[event["environment"]]
+    deployment_role_arn = f"arn:aws:iam:{selected_account}:role/{os.environ['DEPLOY_ROLE']}"
+
     commands = [
         f"aws s3 cp s3://{os.environ['ARTIFACT_BUCKET']}/{event['commit']}.zip ./infrastructure.zip",
         f"unzip infrastructure.zip",
-    ]
 
+        f"aws configure set credential_source \"EcsContainer\"",
+        f"aws configure set region \"{os.environ['AWS_REGION']}\"",
+        f"aws configure set role_arn \"{deployment_role_arn}\"",
+
+        f"cd terraform/{event['environment']}"
+        f"terraform init"
+        f"terraform plan"
+    ]
     command = " && ".join(commands)
 
     logger.info(command)
