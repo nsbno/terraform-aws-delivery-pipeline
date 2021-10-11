@@ -127,5 +127,8 @@ def handler(event: dict, _):
             }
         )
 
-    # TODO: Report back if everything went OK + where to get logs
-    logger.info(task_result)
+    return {
+        "logGroup": task_definition.log_group,
+        "taskArn": task_result["tasks"][0]["taskArn"],
+        "clusterArn": task_result["tasks"][0]["clusterArn"],
+    }
