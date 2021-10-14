@@ -6,6 +6,7 @@
 !include <awslib/AWSSimplified>
 !include <awslib/Compute/all>
 !include <awslib/Storage/all>
+!include <awslib/ManagementAndGovernance/all>
 !include <awslib/Database/DynamoDB>
 
 skinparam participant {
@@ -27,9 +28,11 @@ participant "Continious Integration" as ci
 end box
 
 box "AWS Environment" #white
+participant "<$Lambda>\nTrigger" as lambda
 participant "<$SimpleStorageServiceS3>\nTerraform Artifacts" as s3
 participant "<$ElasticContainerService>\nTerraform Applyer" as tf
 participant "<$DynamoDB>\nApply Order" as db
+participant "<$CloudWatch>\nLogs" as cw
 end box
 
 dev -> gh : Push update to master
@@ -41,28 +44,36 @@ ci -> s3 : Upload Artifact
 
 
 group Deploy Test
-ci -> tf : Trigger terraform apply in test
+ci -> lambda : Trigger terraform apply in test
 ci -> cw : Tail logs
+lambda -> tf : Start terraform
 tf -> s3 : Fetch artifact
 s3 -> tf : Return corresponding artifact
+tf -> db : Verify artifact signature
+tf -> tf : Deploy Terraform
 tf -> db : Flag commit as deployed to test
-tf -> ci : Return Logs
+tf -> ci : Indicate finished
 end
 
 group Deploy Prod
-ci -> tf : Trigger terraform apply in prod
-tf -> db : Check if test has been deployed first
+
+ci -> lambda : Trigger terraform apply in prod
+lambda -> db : Check if test has been deployed first
 
 alt Test has been deployed
 
+    ci -> cw : Tail logs
+    lambda -> tf : Start terraform
     tf -> s3 : Fetch artifact
     s3 -> tf : Return corresponding artifact
-    tf -> db : Flag commit as deployed to test
-    tf -> ci : Return Logs
+    tf -> db : Verify artifact signature
+    tf -> tf : Deploy Terraform
+    tf -> db : Flag commit as deployed to prod
+    tf -> ci : Indicate finished
 
 else Test has not been deployed
 
-    tf -> ci : Failure: Test has to be deployed first
+    lambda -> ci : Failure: Test has to be deployed first
 
 end
 end
