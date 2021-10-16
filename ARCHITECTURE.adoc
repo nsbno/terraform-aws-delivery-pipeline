@@ -46,6 +46,7 @@ ci -> s3 : Upload Artifact
 group Deploy Test
 ci -> lambda : Trigger terraform apply in test
 ci -> cw : Tail logs
+lambda -> db : Verify that this stage hasn't been deployed before
 lambda -> tf : Start terraform
 tf -> s3 : Fetch artifact
 s3 -> tf : Return corresponding artifact
@@ -63,6 +64,7 @@ lambda -> db : Check if test has been deployed first
 alt Test has been deployed
 
     ci -> cw : Tail logs
+    lambda -> db : Verify that this stage hasn't been deployed before
     lambda -> tf : Start terraform
     tf -> s3 : Fetch artifact
     s3 -> tf : Return corresponding artifact
