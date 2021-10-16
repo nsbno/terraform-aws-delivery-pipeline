@@ -234,6 +234,16 @@ resource "aws_api_gateway_rest_api" "github_webhook" {
     name = "${var.name_prefix}-github-webhook"
 }
 
+resource "aws_api_gateway_deployment" "github_webhook" {
+    rest_api_id = aws_api_gateway_rest_api.github_webhook.id
+}
+
+resource "aws_api_gateway_stage" "github_webhook" {
+    deployment_id = aws_api_gateway_deployment.github_webhook.id
+    rest_api_id = aws_api_gateway_rest_api.github_webhook.id
+    stage_name = "prod"
+}
+
 resource "aws_api_gateway_resource" "github_webhook" {
     rest_api_id = aws_api_gateway_rest_api.github_webhook.id
     parent_id = aws_api_gateway_rest_api.github_webhook.root_resource_id
@@ -271,7 +281,7 @@ data "archive_file" "github_webhook" {
 
 resource "aws_lambda_function" "github_webhook" {
     function_name = "${var.name_prefix}-github-webhook"
-    role = aws_iam_role.lambda_ecs_trigger.arn
+    role = aws_iam_role.lambda_github_webhook.arn
 
     runtime = "python3.9"
     handler = "github_webhook.handler"
@@ -319,7 +329,7 @@ data "aws_iam_policy_document" "lambda_webhook_allow_logging" {
 }
 
 resource "aws_iam_role_policy" "lambda_github_webhook_allow_ecs_trigger" {
-    role = aws_iam_role.lambda_ecs_trigger.id
+    role = aws_iam_role.lambda_github_webhook.id
     policy = data.aws_iam_policy_document.lambda_github_webhook_allow_ecs_trigger.json
 }
 
