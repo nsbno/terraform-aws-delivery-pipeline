@@ -5,81 +5,51 @@
 !include <awslib/AWSCommon>
 !include <awslib/AWSSimplified>
 !include <awslib/Compute/all>
-!include <awslib/Storage/all>
-!include <awslib/ManagementAndGovernance/all>
-!include <awslib/Database/DynamoDB>
+!include <awslib/mobile/all>
+!include <awslib/general/all>
+!include <awslib/GroupIcons/all>
+!include <awslib/ApplicationIntegration/all>
+!include <tupadr3/common>
+!include <tupadr3/devicons/github_badge>
 
-skinparam participant {
-    BackgroundColor AWS_BG_COLOR
-    BorderColor AWS_BORDER_COLOR
-}
+Users(dev, "Developer", "")
+DEV_GITHUB_BADGE(github, "GitHub")
 
-skinparam BoxPadding 10
+APIGateway(webhook, "External Entrypoint", "")
 
-hide footbox
+Lambda(github_handler, "GitHub Handler", "")
+Lambda(deployment_creator, "Deployment Creator", "")
+Lambda(terraform_trigger, "Deployment Trigger", "")
+Lambda(status_updater, "GitHub Deployment Status Updater", "")
+Fargate(terraform_deployer, "Terraform Runtime", "")
 
-box "VCS Environment" #white
-actor "Developer" as dev
-participant "GitHub" as gh
-end box
+SQS(queue_repos, "Updated Repos", "")
+SQS(queue_deployment, "Environment Deployment", "")
+SQS(queue_deployment_status, "Deployment Status", "")
 
-box "CI Environment" #white
-participant "Continious Integration" as ci
-end box
-
-box "AWS Environment" #white
-participant "<$Lambda>\nTrigger" as lambda
-participant "<$SimpleStorageServiceS3>\nTerraform Artifacts" as s3
-participant "<$ElasticContainerService>\nTerraform Applyer" as tf
-participant "<$DynamoDB>\nApply Order" as db
-participant "<$CloudWatch>\nLogs" as cw
-end box
-
-dev -> gh : Push update to master
-gh -> ci : Trigger new build with deployment
+Cloudalt(environment, "Environment", "")
 
 
-ci -> ci : Create Artifact
-ci -> s3 : Upload Artifact
+dev -> github
+github --> webhook : New commits on master
+webhook -> github_handler
+github_handler -> queue_repos
+
+queue_repos -> deployment_creator
+deployment_creator -> queue_deployment
+
+queue_deployment -> terraform_trigger
+terraform_trigger -> terraform_deployer
+terraform_deployer -> environment
+
+deployment_creator --> queue_deployment_status : Deployment queued
+terraform_trigger --> queue_deployment_status : Deployment in progress
+terraform_deployer --> queue_deployment_status : Deployment finished/failed
+queue_deployment_status -> status_updater
+status_updater -> github
 
 
-group Deploy Test
-ci -> lambda : Trigger terraform apply in test
-ci -> cw : Tail logs
-lambda -> db : Verify that this stage hasn't been deployed before
-lambda -> tf : Start terraform
-tf -> s3 : Fetch artifact
-s3 -> tf : Return corresponding artifact
-tf -> db : Verify artifact signature
-tf -> tf : Deploy Terraform
-tf -> db : Flag commit as deployed to test
-tf -> ci : Indicate finished
-end
-
-group Deploy Prod
-
-ci -> lambda : Trigger terraform apply in prod
-lambda -> db : Check if test has been deployed first
-
-alt Test has been deployed
-
-    ci -> cw : Tail logs
-    lambda -> db : Verify that this stage hasn't been deployed before
-    lambda -> tf : Start terraform
-    tf -> s3 : Fetch artifact
-    s3 -> tf : Return corresponding artifact
-    tf -> db : Verify artifact signature
-    tf -> tf : Deploy Terraform
-    tf -> db : Flag commit as deployed to prod
-    tf -> ci : Indicate finished
-
-else Test has not been deployed
-
-    lambda -> ci : Failure: Test has to be deployed first
-
-end
-end
-
+dev -> webhook : Approve deployment
 ....
 
 == Responsibilities
