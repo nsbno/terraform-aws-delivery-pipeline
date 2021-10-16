@@ -7,3 +7,19 @@
 A deployment you can trust to securely deploy your application to the cloud.
 
 toc::[]
+
+== Features
+
+Main features are:
+
+* Pull based deployment
+* Send terraform plan to pull requests to allow devs to see their changes
+* Add deployments in GitHub
+
+Some security features are also present:
+
+* Order of deployment (stage before prod)
+* Approval before deployment to specific environments
+* Check if environment has diverged from master
+* Specify what to do if environment has diverged from master
+** This can be sending out an alarm, running apply, etc

@@ -2,11 +2,15 @@ terraform {
     required_version = ">= 1.0.0"
 }
 
+data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
+
 /*
  * == Artifact Storage
  *
  * Any artifacts being deployed will be stored here.
  */
+# TODO: Remove this, and pull directly from git instead
 resource "aws_s3_bucket" "artifacts" {
     bucket = "${var.account_id}-${var.name_prefix}-delivery-pipeline-artifacts"
 }
@@ -215,5 +219,114 @@ data "aws_iam_policy_document" "lambda_allow_ecs" {
             variable = "ecs:cluster"
             values = [aws_ecs_cluster.cluster.arn]
         }
+    }
+}
+
+/*
+ * == GitHub event handler
+ *
+ * Handle events to and from GitHub.
+ * We have to handle:
+ *  - New commits on master
+ *  - TODO: Pull requests (add a check with the terraform plan output)
+ */
+resource "aws_api_gateway_rest_api" "github_webhook" {
+    name = "${var.name_prefix}-github-webhook"
+}
+
+resource "aws_api_gateway_resource" "github_webhook" {
+    rest_api_id = aws_api_gateway_rest_api.github_webhook.id
+    parent_id = aws_api_gateway_rest_api.github_webhook.root_resource_id
+    path_part = "github_webhook"
+}
+
+resource "aws_api_gateway_method" "github_webhook" {
+    rest_api_id = aws_api_gateway_rest_api.github_webhook.id
+    resource_id = aws_api_gateway_resource.github_webhook.id
+    authorization = "NONE"
+    http_method = "POST"
+}
+
+resource "aws_api_gateway_integration" "github_webhook" {
+    rest_api_id = aws_api_gateway_rest_api.github_webhook.id
+    resource_id = aws_api_gateway_resource.github_webhook.id
+    http_method = aws_api_gateway_method.github_webhook.http_method
+    type = "AWS_PROXY"
+    uri = aws_lambda_function.github_webhook.invoke_arn
+    integration_http_method = aws_api_gateway_method.github_webhook.http_method
+}
+
+resource "aws_lambda_permission" "api_gateway_github_webhook" {
+    action = "lambda:InvokeFunction"
+    function_name = aws_lambda_function.github_webhook.function_name
+    principal = "apigateway.amazonaws.com"
+    # source_arn = "arn:aws:execute-api:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.github_webhook.id}/*/${aws_api_gateway_method.github_webhook.http_method}${aws_api_gateway_resource.github_webhook.path}"
+}
+
+data "archive_file" "github_webhook" {
+    type = "zip"
+    source_file = "${path.module}/github_webhook.py"
+    output_path = "${path.module}/github_webhook.zip"
+}
+
+resource "aws_lambda_function" "github_webhook" {
+    function_name = "${var.name_prefix}-github-webhook"
+    role = aws_iam_role.lambda_ecs_trigger.arn
+
+    runtime = "python3.9"
+    handler = "github_webhook.handler"
+
+    filename = data.archive_file.github_webhook.output_path
+    source_code_hash = data.archive_file.github_webhook.output_base64sha256
+}
+
+resource "aws_cloudwatch_log_group" "lambda_github_webhook" {
+    name = "/aws/lambda/${aws_lambda_function.github_webhook.function_name}"
+}
+
+resource "aws_iam_role" "lambda_github_webhook" {
+    name = "${var.name_prefix}-github-webhook"
+    assume_role_policy = data.aws_iam_policy_document.lambda_github_webhook_assume.json
+}
+
+data "aws_iam_policy_document" "lambda_github_webhook_assume" {
+    statement {
+        effect = "Allow"
+        actions = ["sts:AssumeRole"]
+        principals {
+            type = "Service"
+            identifiers = ["lambda.amazonaws.com"]
+        }
+    }
+}
+
+resource "aws_iam_role_policy" "lambda_webhook_allow_logging" {
+    role = aws_iam_role.lambda_github_webhook.id
+    policy = data.aws_iam_policy_document.lambda_webhook_allow_logging.json
+}
+
+data "aws_iam_policy_document" "lambda_webhook_allow_logging" {
+    statement {
+        effect = "Allow"
+        actions = [
+            "logs:CreateLogStream",
+            "logs:PutLogEvents"
+        ]
+        resources = [
+            "${aws_cloudwatch_log_group.lambda_github_webhook.arn}:*"
+        ]
+    }
+}
+
+resource "aws_iam_role_policy" "lambda_github_webhook_allow_ecs_trigger" {
+    role = aws_iam_role.lambda_ecs_trigger.id
+    policy = data.aws_iam_policy_document.lambda_github_webhook_allow_ecs_trigger.json
+}
+
+data "aws_iam_policy_document" "lambda_github_webhook_allow_ecs_trigger" {
+    statement {
+        effect = "Allow"
+        actions = ["lambda:InvokeFunction"]
+        resources = [aws_lambda_function.ecs_trigger.arn]
     }
 }
