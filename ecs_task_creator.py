@@ -4,9 +4,24 @@ import logging
 from dataclasses import dataclass
 
 import boto3
+import requests
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+def _set_github_deployment_state(deployment_url: str, state: str):
+    # TODO: This is for demo purposes and must be changed to be propper modular
+    response = requests.post(
+        f"{deployment_url}/statuses",
+        auth=(os.environ["GH_USERNAME"], os.environ["GH_PASSWORD"]),
+        json={
+            "state": state,
+            "log_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        }
+    )
+
+    return response.json()
 
 
 @dataclass
@@ -128,6 +143,7 @@ def handler(event: dict, _):
                 }
             }
         )
+        _set_github_deployment_state(event["deployment_url"], "in_progress")
 
     return {
         "logGroup": task_definition.log_group,

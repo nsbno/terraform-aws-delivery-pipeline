@@ -119,7 +119,7 @@ data "aws_iam_policy_document" "allow_assume_deployment_role" {
  */
 data "archive_file" "lambda_funtion" {
     type = "zip"
-    source_file = "${path.module}/ecs_task_creator.py"
+    source_dir = "${path.module}/"
     output_path = "${path.module}/ecs_task_creator.zip"
 }
 
@@ -275,7 +275,7 @@ resource "aws_lambda_permission" "api_gateway_github_webhook" {
 
 data "archive_file" "github_webhook" {
     type = "zip"
-    source_file = "${path.module}/github_webhook.py"
+    source_dir = "${path.module}/"
     output_path = "${path.module}/github_webhook.zip"
 }
 
