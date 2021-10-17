@@ -21,6 +21,9 @@ def _create_github_deployment(deployments_url: str):
         }
     )
 
+    print(response.status_code)
+    print(response.text)
+
     return response.json()["url"]
 
 
@@ -33,6 +36,9 @@ def _set_github_deployment_state(deployment_url: str, state: str):
             "state": state,
         }
     )
+
+    print(response.status_code)
+    print(response.text)
 
     return response.json()
 

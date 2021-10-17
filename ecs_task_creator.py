@@ -21,6 +21,9 @@ def _set_github_deployment_state(deployment_url: str, state: str):
         }
     )
 
+    print(response.status_code)
+    print(response.text)
+
     return response.json()
 
 
