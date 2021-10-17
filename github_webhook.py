@@ -61,7 +61,7 @@ def start_deployment(event):
     lambda_client = boto3.client("lambda")
     response = lambda_client.invoke(
         # TODO: Don't hardcode these values
-        FunctionName="nicolas-infrademo-deployment-pipeline-delivery-pipeline-trigger",
+        FunctionName="nicolas-infrademo-delivery-pipeline-trigger",
         InvocationType="RequestResponse",
         Payload=json.dumps({
             "terraform_version": "1.0.0",
