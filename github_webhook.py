@@ -15,6 +15,7 @@ def _create_github_deployment(deployments_url: str):
         deployments_url,
         auth=(os.environ["GH_USERNAME"], os.environ["GH_PASSWORD"]),
         json={
+            "ref": "master",
             "auto_merge": False,
             "required_contexts": [],
             "environment": "test",
