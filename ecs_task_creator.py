@@ -107,7 +107,7 @@ def handler(event: dict, _):
     """
     accounts = json.loads(os.environ["DEPLOY_ACCOUNTS"])
     selected_account = accounts[event["environment"]]
-    deployment_role_arn = f"arn:aws:iam:{selected_account}:role/{os.environ['DEPLOY_ROLE']}"
+    deployment_role_arn = f"arn:aws:iam::{selected_account}:role/{os.environ['DEPLOY_ROLE']}"
 
     commands = [
         f"aws s3 cp s3://{os.environ['ARTIFACT_BUCKET']}/{event['commit']}.zip ./infrastructure.zip",
