@@ -62,7 +62,7 @@ def start_deployment(event):
     response = lambda_client.invoke(
         # TODO: Don't hardcode these values
         FunctionName="nicolas-infrademo-delivery-pipeline-trigger",
-        InvocationType="RequestResponse",
+        InvocationType="Event",
         Payload=json.dumps({
             "terraform_version": "1.0.0",
             "environment": "test",
