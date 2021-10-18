@@ -119,7 +119,10 @@ def handler(event: dict, _):
 
         f"cd terraform/{event['environment']}",
         f"terraform init -no-color",
-        f"terraform plan -no-color"
+        f"terraform plan -no-color",
+
+        # TODO: Temporary for testing.
+        f"curl -u {os.environ['GH_USERNAME']}:{os.environ['GH_PASSWORD']} -X POST -H 'Accept: application/vnd.github.v3+json' {event['deployment_url']}/statuses -d '{{\"state\": \"success\", \"description\":\"Sup\"}}'"
     ]
     command = " && ".join(commands)
 
