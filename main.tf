@@ -10,7 +10,6 @@ data "aws_caller_identity" "current" {}
  *
  * Any artifacts being deployed will be stored here.
  */
-# TODO: Remove this, and pull directly from git instead
 resource "aws_s3_bucket" "artifacts" {
     bucket = "${var.account_id}-${var.name_prefix}-delivery-pipeline-artifacts"
 }
@@ -325,18 +324,5 @@ data "aws_iam_policy_document" "lambda_webhook_allow_logging" {
         resources = [
             "${aws_cloudwatch_log_group.lambda_github_webhook.arn}:*"
         ]
-    }
-}
-
-resource "aws_iam_role_policy" "lambda_github_webhook_allow_ecs_trigger" {
-    role = aws_iam_role.lambda_github_webhook.id
-    policy = data.aws_iam_policy_document.lambda_github_webhook_allow_ecs_trigger.json
-}
-
-data "aws_iam_policy_document" "lambda_github_webhook_allow_ecs_trigger" {
-    statement {
-        effect = "Allow"
-        actions = ["lambda:InvokeFunction"]
-        resources = [aws_lambda_function.ecs_trigger.arn]
     }
 }
