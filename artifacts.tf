@@ -8,21 +8,22 @@ resource "aws_s3_bucket" "artifacts" {
     bucket = "${var.account_id}-${var.name_prefix}-delivery-pipeline-artifacts"
 }
 
-data "archive_file" "artifact_trigger" {
-    type = "zip"
-    source_dir = "${path.module}/"
-    output_path = "${path.module}/ecs_task_creator.zip"
+module "pipeline_orchistrator_artifact" {
+    source = "./modules/build_artifact"
+
+    input_path = "${path.module}/lambdas/pipeline_orchestrator"
+    output_path = "${path.module}/lambdas/pipeline_orchestrator.zip"
 }
 
-resource "aws_lambda_function" "ecs_trigger" {
-    function_name = "${var.name_prefix}-delivery-pipeline-trigger"
+resource "aws_lambda_function" "pipeline_orchestrator" {
+    function_name = "${var.name_prefix}-delivery-pipeline-orchestrator"
     role = aws_iam_role.lambda_ecs_trigger.arn
 
     runtime = "python3.9"
-    handler = "ecs_task_creator.handler"
+    handler = "pipeline_orchestrator.handler"
 
-    filename = data.archive_file.lambda_funtion.output_path
-    source_code_hash = data.archive_file.lambda_funtion.output_base64sha256
+    filename = module.pipeline_orchistrator_artifact.artifact.output_path
+    source_code_hash = module.pipeline_orchistrator_artifact.artifact.output_base64sha256
 
     environment {
         variables = {

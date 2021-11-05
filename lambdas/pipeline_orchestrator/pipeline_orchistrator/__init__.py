@@ -103,7 +103,7 @@ class TaskDefinition:
                     "environment": [
                         {"name": name, "value": value}
                         for name, value in self.environment_variables
-                    ]
+                    ],
                     "logConfiguration": {
                         "logDriver": "awslogs",
                         "options": {
@@ -152,19 +152,7 @@ def _deploy_to_environment(name: str, ):
     )
 
     commands = [
-        f"aws s3 cp s3://{os.environ['ARTIFACT_BUCKET']}/{event['commit']}.zip ./infrastructure.zip",
-        f"unzip infrastructure.zip",
-
-        f"aws configure set credential_source \"EcsContainer\"",
-        f"aws configure set region \"{os.environ['AWS_REGION']}\"",
-        f"aws configure set role_arn \"{deployment_role_arn}\"",
-
-        f"cd terraform/{event['environment']}",
-        f"terraform init -no-color",
-        f"terraform plan -no-color",
-
-        # TODO: Temporary for testing.
-        f"curl -u {os.environ['GH_USERNAME']}:{os.environ['GH_PASSWORD']} -X POST -H 'Accept: application/vnd.github.v3+json' {event['deployment_url']}/statuses -d '{{\"state\": \"success\", \"description\":\"Sup\"}}'"
+        "echo Hello World"
     ]
     command = " && ".join(commands)
     task_definition = TaskDefinition(
@@ -254,8 +242,7 @@ def deployment_configuration(deployment_info: DeploymentInfo) -> Workflow:
         fail_or_deploy_to_prod
     ])
 
-    # TODO: Deploy the SFN.
-    workflow_name=f"deployment-{deployment_info.git_repo}"
+    workflow_name = f"deployment-{deployment_info.git_repo}"
     try:
         account_id = boto3.client("sts").get_caller_identity().get("Account")
         region = boto3.session.Session().region_name
