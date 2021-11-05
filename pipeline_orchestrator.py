@@ -1,14 +1,16 @@
 import dataclasses
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from io import BytesIO
-from itertools import zip_longest
-from typing import Union, Optional
 from zipfile import ZipFile
 
 import boto3
 import yaml
+from stepfunctions.steps import states, compute
+from stepfunctions.steps.choice_rule import ChoiceRule
+from stepfunctions.workflow import Workflow
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -59,132 +61,221 @@ def _get_config(bucket: str, key: str) -> dict:
 
 
 @dataclass
-class _StepFunctionData:
-    """Base class for common state function methods"""
-    def to_sfn(self):
-        """Turns the data into valid state function language JSON"""
-        pass
+class TaskDefinition:
+    """Task definition for any ECS container
 
-
-@dataclass
-class StepFunctionState(_StepFunctionData):
-    """Simple implementation of the step function language
-
-    The spec can be found here: https://states-language.net/spec.html
+    Used to specify and create a task definition in AWS.
     """
-    type: str
-    # input_path: list = None
-    # output_path: list = None
-    # next: str = None
-    # end: bool = None
-    # result_path: list = None
-    # parameters: dict = None
-    # result_selector: dict = None
-    # catch: list[dict] = None
+    family: str
+    image: str
+    entrypoint: list[str]
+    command: list[str]
+    environment_variables: dict[str, str]
 
-    # def __post_init__(self):
-    #     if not (self.next or self.end) and self.type not in ("Fail", "Succeed", "Choice"):
-    #         raise ValueError("Either 'next' or 'end' has to be specified")
-    #     if self.next and self.end:
-    #         raise ValueError("The variables 'next' and 'end' are mutually exclusive")
+    task_role_arn: str = os.environ["TASK_ROLE_ARN"]
+    execution_role_arn: str = os.environ["EXECUTION_ROLE_ARN"]
 
+    log_group: str = os.environ["LOG_GROUP"]
+    log_region: str = os.environ["AWS_REGION"]
 
-@dataclass
-class StepFunctionParallel(StepFunctionState):
-    branches: list["StepFunctionSteps"]
-    type: str = "Parallel"
-
-
-@dataclass
-class Default(_StepFunctionData):
-    next: str
-
-
-@dataclass
-class ChoiceRule(_StepFunctionData):
-    """A rule for a StepFunctionChoice
-
-    See the specification for options:
-    https://states-language.net/spec.html#choice-state
-    """
-    variable: str
-    test: str
-    test_value: any
-    next: str
-
-    def to_sfn(self):
-        return {
-            "Variable": self.variable,
-            self.test: self.test_value,
-            "Next": self.next
-        }
-
-
-@dataclass
-class StepFunctionChoice(StepFunctionState):
-    choices: list[ChoiceRule]
-    default: str
-    type: str = "Choice"
-
-
-@dataclass
-class StepFunctionSteps(_StepFunctionData):
-    """Steps to execute. The first state is the start state"""
-    steps: dict[str, StepFunctionState]
-    start_at: str = field(init=False)
+    compatability: str = "FARGATE"
+    network_mode: str = "awsvpc"
+    cpu: str = "256"
+    memory: str = "512"
 
     def __post_init__(self):
-        self.start_at = list(self.steps)[0]
+        ecs_client = boto3.client("ecs")
+
+        response = ecs_client.register_task_definition(
+            family=self.family,
+            taskRoleArn=self.task_role_arn,
+            executionRoleArn=self.execution_role_arn,
+            networkMode=self.network_mode,
+            cpu=self.cpu,
+            memory=self.memory,
+            requiresCompatibilities=[self.compatability],
+            containerDefinitions=[
+                {
+                    "name": self.family,
+                    "image": self.image,
+                    "entryPoint": self.entrypoint,
+                    "command": self.command,
+                    "environment": [
+                        {"name": name, "value": value}
+                        for name, value in self.environment_variables
+                    ]
+                    "logConfiguration": {
+                        "logDriver": "awslogs",
+                        "options": {
+                            "awslogs-group": self.log_group,
+                            "awslogs-region": self.log_region,
+                            "awslogs-stream-prefix": self.family,
+                        },
+                    }
+                },
+            ],
+        )
+
+        self.arn = response["taskDefinition"]["taskDefinitionArn"]
+
+        return self
 
 
-def _create_state_machine(steps: dict, error_catcher: StepFunctionState) -> StepFunctionSteps:
-    for current_step, next_step in zip_longest(list(steps), list(steps)[1:]):
-        if next_step:
-            if steps[current_step].type == "Choice":
-                steps[current_step].default = next_step
-            else:
-                steps[current_step].next = next_step
-                steps[current_step].end = None
-        else:
-            steps[current_step].next = None
-            steps[current_step].end = True
+def _deploy_to_environment(name: str, ):
+    """Construct a chain of steps to deploy to a single environment.
 
-    return StepFunctionSteps(steps={**steps, "Prod - Catch Errors": error_catcher})
-
-
-def _create_deployment_steps(envrionment: str) -> dict:
-    return {
-        f"{envrionment} - Bump Version": StepFunctionState(),
-        f"{envrionment} - Deploy Terraform": StepFunctionState(),
-    }
-
-
-def deployment_configuration(deployment_info: DeploymentInfo):
-    """Creates or modifies the step function pipeline according to the
-    deployment configuration."""
-    config = _get_config(deployment_info.artifact_bucket, deployment_info.artifact_key)
-
-    # TODO: Build the SFN JSON
-    state_machine = _create_state_machine(
-        steps={
-            "Deploy Service, Test and Stage": StepFunctionParallel(
-                branches=[
-                    StepFunctionSteps(steps=_create_deployment_steps("Service")),
-                    StepFunctionSteps(steps=_create_deployment_steps("Test")),
-                    StepFunctionSteps(steps=_create_deployment_steps("Stage"))
-                ]
-            )
-            "Check Errors": StepFunctionChoice(),
-            **_create_deployment_steps("Prod"),
+    :arg name: The name of the environment
+    """
+    set_version = compute.LambdaStep(
+        state_id=f"{name} - Set Versions",
+        parameters={
+            "FunctionName": "{env.set_version_lambda}",
+            "Payload": {
+                # TODO: Fix assumptions
+                "role_to_assume": "${local.name_prefix}-trusted-set-version",
+                "ssm_prefix": "local.name_prefix",
+                "get_versions": False,
+                "set_versions": True,
+                "ecr_applications": [],
+                "lambda_applications": [],
+                "lambda_s3_bucket": "data.aws_s3_bucket.project_bucket.id",
+                "lambda_s3_prefix": "nsbno/trafikksystem-aws/lambdas",
+                "frontend_applications": [],
+                "frontend_s3_bucket": "data.aws_s3_bucket.project_bucket.id",
+                "frontend_s3_prefix": "nsbno/trafikksystem-aws/frontends",
+                # TODO: This isn't applicable on the service account
+                "account_id": "local.test_account_id",
+                "versions.$": "$.versions",
+            }
         },
-        error_catcher=StepFunctionState(),
+        result_path=None
     )
 
+    commands = [
+        f"aws s3 cp s3://{os.environ['ARTIFACT_BUCKET']}/{event['commit']}.zip ./infrastructure.zip",
+        f"unzip infrastructure.zip",
+
+        f"aws configure set credential_source \"EcsContainer\"",
+        f"aws configure set region \"{os.environ['AWS_REGION']}\"",
+        f"aws configure set role_arn \"{deployment_role_arn}\"",
+
+        f"cd terraform/{event['environment']}",
+        f"terraform init -no-color",
+        f"terraform plan -no-color",
+
+        # TODO: Temporary for testing.
+        f"curl -u {os.environ['GH_USERNAME']}:{os.environ['GH_PASSWORD']} -X POST -H 'Accept: application/vnd.github.v3+json' {event['deployment_url']}/statuses -d '{{\"state\": \"success\", \"description\":\"Sup\"}}'"
+    ]
+    command = " && ".join(commands)
+    task_definition = TaskDefinition(
+        family="deploy",
+        image="{image}:{verson}",
+        entrypoint=["/bin/sh", "-c"],
+        command=[command],
+    )
+    deploy = compute.EcsRunTaskStep(
+        state_id=f"{name} - Deploy",
+        parameters={
+            "Cluster": os.environ["ECS_CLUSTER"],
+            "TaskDefinition": task_definition.arn,
+            "Overrides": {
+                "ContainerOverrides": [{
+                    # Giving the container a name with the git hash makes it
+                    # easier to track.
+                    "name.$": f"States.Format('{name}-{{}}', $.git-hash)"
+                }]
+            },
+        },
+        result_path=None
+    )
+
+    error_catcher = states.Pass(state_id=f"{name} - Error Catcher")
+    catch_error = states.Catch(error_equals=["States.ALL"], next_step=error_catcher)
+
+    set_version.add_catch(catch_error)
+    deploy.add_catch(catch_error)
+
+    return states.Chain(steps=[set_version, deploy])
+
+
+def deployment_configuration(deployment_info: DeploymentInfo) -> Workflow:
+    """Create a chain of steps that defines our deployment pipeline"""
+    config = _get_config(deployment_info.artifact_bucket, deployment_info.artifact_key)
+
+    get_latest_versions = compute.LambdaStep(
+        state_id="Get Latest Artifact Versions",
+        parameters={
+            "FunctionName": os.environ["SET_VERSION_LAMBDA_ARN"],
+            "Payload": {
+                # TODO: Fix assumptions
+                "role_to_assume": os.environ["SET_VERSION_ROLE"],
+                "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
+                "get_versions": True,
+                "set_versions": False,
+                "ecr_applications": [],
+                "lambda_applications": [],
+                "lambda_s3_bucket": os.environ["SET_VERSION_LAMBDA_S3_BUCKET"],
+                "lambda_s3_prefix": os.environ["SET_VERSION_LAMBDA_S3_PREFIX"],
+                "frontend_applications": [],
+                "frontend_s3_bucket": os.environ["SET_VERSION_FRONTEND_S3_BUCKET"],
+                "frontend_s3_prefix": os.environ["SET_VERSION_FRONTEND_S3_PREFIX"]
+            }
+        },
+        result_selector={
+            "ecr.$": "$.Payload.ecr",
+            "frontend.$": "$.Payload.frontend",
+            "lambda.$": "$.Payload.lambda"
+        },
+        result_path="$.versions"
+    )
+
+    pre_prod_deployment = states.Parallel(
+        state_id="Service, Test, Stage",
+        result_path="$.results"
+    )
+    for environment in ("Service", "Test", "Stage"):
+        pre_prod_deployment.add_branch(_deploy_to_environment(environment))
+
+    fail_or_deploy_to_prod = states.Choice(state_id=f"{pre_prod_deployment} - Check for errors")
+    # We don't want to deploy to prod if any the previous steps failed
+    fail_or_deploy_to_prod.add_choice(
+        ChoiceRule.IsPresent(
+            variable="$.results[*].Error",
+            value=True
+        ),
+        next_step=states.Fail(state_id=f"{pre_prod_deployment.state_id} Error")
+    )
+
+    fail_or_deploy_to_prod.default_choice(_deploy_to_environment("Prod"))
+
+    main_flow = states.Chain(steps=[
+        get_latest_versions,
+        pre_prod_deployment,
+        fail_or_deploy_to_prod
+    ])
+
     # TODO: Deploy the SFN.
-    pass
+    workflow_name=f"deployment-{deployment_info.git_repo}"
+    try:
+        account_id = boto3.client("sts").get_caller_identity().get("Account")
+        region = boto3.session.Session().region_name
+        workflow = Workflow.attach(
+            state_machine_arn=f"arn:aws:states:{region}:{account_id}:"
+                              f"stateMachine:{workflow_name}"
+        )
+        workflow.update(definition=main_flow)
+    except boto3.client("stepfunctions").exceptions.StateMachineDoesNotExist:
+        workflow = Workflow(
+            name=f"deployment-{deployment_info.git_repo}",
+            definition=main_flow,
+            role=os.environ["STEP_FUNCTION_ROLE_ARN"],
+        )
+        workflow.create()
+
+    return workflow
 
 
-def start_pipeline(pipeline_arn: str, deployment_info: DeploymentInfo) -> None:
+def start_pipeline(workflow: Workflow, deployment_info: DeploymentInfo) -> None:
     """Starts the pipeline based on the deployment info.
 
     Do note that because we are editing the pipeline earlier, we have to wait a
@@ -194,14 +285,9 @@ def start_pipeline(pipeline_arn: str, deployment_info: DeploymentInfo) -> None:
     Find out more here:
     https://docs.aws.amazon.com/step-functions/latest/dg/concepts-read-consistency.html
     """
-    account_id = boto3.client("sts").get_caller_identity().get("Account")
-    region = boto3.session.Session().region_name
-
-    client = boto3.client("stepfunctions")
-    client.start_execution(
-        stateMachineArn=f"arn:aws:states:{region}:{account_id}:stateMachine:{deployment_info.git_repo}",
+    workflow.execute(
         name=deployment_info.git_sha1,
-        input=dataclasses.asdict(deployment_info),
+        inputs=dataclasses.asdict(deployment_info),
     )
 
 
@@ -222,9 +308,11 @@ def handler(event, _):
     logger.info("Got data from S3!")
 
     logger.info("Starting Deployment Configuration")
-    pipeline_arn = deployment_configuration(deployment_info)
+    # TODO: Only change if this handler or the actual config has changed.
+    #       Might be a usecase for the pulumi automation api?
+    workflow = deployment_configuration(deployment_info)
     logger.info("Finished Deployment Configuration")
 
     logger.info("Starting the pipeline!")
-    start_pipeline(pipeline_arn, deployment_info)
+    start_pipeline(workflow, deployment_info)
     logger.info("Finished starting the pipeline!")
