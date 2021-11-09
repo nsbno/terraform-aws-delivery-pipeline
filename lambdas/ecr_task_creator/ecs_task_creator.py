@@ -4,7 +4,6 @@ import logging
 from dataclasses import dataclass
 
 import boto3
-import requests
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

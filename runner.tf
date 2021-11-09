@@ -9,10 +9,11 @@
  * There is a special case for production, where a check has to be passed before
  * being allowed to deploy.
  */
-data "archive_file" "lambda_funtion" {
-    type = "zip"
-    source_dir = "${path.module}/"
-    output_path = "${path.module}/ecs_task_creator.zip"
+module "ecs_trigger_artifact" {
+    source = "./modules/build_artifact"
+
+    input_path = "${path.module}/lambdas/ecr_task_creator"
+    output_path = "${path.module}/lambdas/ecs_task_creator.zip"
 }
 
 resource "aws_lambda_function" "ecs_trigger" {
@@ -22,8 +23,8 @@ resource "aws_lambda_function" "ecs_trigger" {
     runtime = "python3.9"
     handler = "ecs_task_creator.handler"
 
-    filename = data.archive_file.lambda_funtion.output_path
-    source_code_hash = data.archive_file.lambda_funtion.output_base64sha256
+    filename = module.ecs_trigger_artifact.artifact.output_path
+    source_code_hash = module.ecs_trigger_artifact.artifact.output_base64sha256
 
     environment {
         variables = {
