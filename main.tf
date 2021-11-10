@@ -16,7 +16,7 @@ resource "aws_ecs_cluster" "cluster" {
 }
 
 resource "aws_cloudwatch_log_group" "ecs" {
-    name = "/aws/ecs/${var.name_prefix}-delivery-pipeline/terraform"
+    name = "/aws/ecs/${var.name_prefix}-delivery-pipeline"
 }
 
 # Execution Role to allow Fargate to run our tasks.

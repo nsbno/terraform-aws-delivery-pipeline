@@ -43,7 +43,7 @@ class DeploymentInfo:
         s3_client = boto3.resource("s3")
 
         trigger_file = s3_client.Object(bucket, key)
-        data = trigger_file.get(VersionId=version_id)["Body"].read()
+        data = trigger_file.get()["Body"].read()
 
         return cls(**json.loads(data), artifact_bucket=bucket)
 
@@ -77,6 +77,7 @@ class TaskDefinition:
 
     log_group: str = os.environ["LOG_GROUP"]
     log_region: str = os.environ["AWS_REGION"]
+    log_stream_prefix: str = ""
 
     compatability: str = "FARGATE"
     network_mode: str = "awsvpc"
@@ -109,7 +110,7 @@ class TaskDefinition:
                         "options": {
                             "awslogs-group": self.log_group,
                             "awslogs-region": self.log_region,
-                            "awslogs-stream-prefix": self.family,
+                            "awslogs-stream-prefix": self.log_stream_prefix,
                         },
                     }
                 },
@@ -126,96 +127,106 @@ def _deploy_to_environment(name: str, ):
 
     :arg name: The name of the environment
     """
-    set_version = compute.LambdaStep(
-        state_id=f"{name} - Set Versions",
-        parameters={
-            "FunctionName": "{env.set_version_lambda}",
-            "Payload": {
-                # TODO: Fix assumptions
-                "role_to_assume": "${local.name_prefix}-trusted-set-version",
-                "ssm_prefix": "local.name_prefix",
-                "get_versions": False,
-                "set_versions": True,
-                "ecr_applications": [],
-                "lambda_applications": [],
-                "lambda_s3_bucket": "data.aws_s3_bucket.project_bucket.id",
-                "lambda_s3_prefix": "nsbno/trafikksystem-aws/lambdas",
-                "frontend_applications": [],
-                "frontend_s3_bucket": "data.aws_s3_bucket.project_bucket.id",
-                "frontend_s3_prefix": "nsbno/trafikksystem-aws/frontends",
-                # TODO: This isn't applicable on the service account
-                "account_id": "local.test_account_id",
-                "versions.$": "$.versions",
-            }
-        },
-        result_path=None
-    )
+    # set_version = compute.LambdaStep(
+    #     state_id=f"{name} - Set Versions",
+    #     parameters={
+    #         "FunctionName": os.environ["SET_VERSION_LABMDA_ARN"],
+    #         "Payload": {
+    #             # TODO: Fix assumptions
+    #             "role_to_assume": os.environ["SET_VERSION_ROLE_TO_ASSUME"],
+    #             "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
+    #             "get_versions": False,
+    #             "set_versions": True,
+    #             "ecr_applications": [],
+    #             "lambda_applications": [],
+    #             "lambda_s3_bucket": os.environ["SET_VERSION_LAMBDA_S3_BUCKET"],
+    #             "lambda_s3_prefix": os.environ["SET_VERSION_LAMBDA_S3_PREFIX"],
+    #             "frontend_applications": [],
+    #             "frontend_s3_prefix": "",
+    #             # TODO: This isn't applicable on the service account.
+    #             #       They're applied only when assuming a role in other
+    #             #       accounts.
+    #             "account_id": "local.test_account_id",
+    #             "versions.$": "$.versions",
+    #         }
+    #     },
+    #     result_path=None
+    # )
 
     commands = [
         "echo Hello World"
     ]
     command = " && ".join(commands)
+
+    # TODO: Temp
+    image = "vydev/terraform"
+    version = "1.0.8"
+
     task_definition = TaskDefinition(
         family="deploy",
-        image="{image}:{verson}",
+        image=f"{image}:{version}",
         entrypoint=["/bin/sh", "-c"],
         command=[command],
+        environment_variables={},
+        log_stream_prefix=name,
     )
     deploy = compute.EcsRunTaskStep(
         state_id=f"{name} - Deploy",
         parameters={
+            "LaunchType": "FARGATE",
             "Cluster": os.environ["ECS_CLUSTER"],
             "TaskDefinition": task_definition.arn,
-            "Overrides": {
-                "ContainerOverrides": [{
-                    # Giving the container a name with the git hash makes it
-                    # easier to track.
-                    "name.$": f"States.Format('{name}-{{}}', $.git-hash)"
-                }]
-            },
+            "NetworkConfiguration": {
+                "AwsvpcConfiguration": {
+                    "Subnets": json.loads(os.environ["SUBNETS"]),
+                    "AssignPublicIp": "ENABLED",
+                }
+            }
         },
-        result_path=None
     )
 
     error_catcher = states.Pass(state_id=f"{name} - Error Catcher")
     catch_error = states.Catch(error_equals=["States.ALL"], next_step=error_catcher)
 
-    set_version.add_catch(catch_error)
+    # set_version.add_catch(catch_error)
     deploy.add_catch(catch_error)
 
-    return states.Chain(steps=[set_version, deploy])
+    return states.Chain(steps=[
+        # set_version,
+        deploy
+    ])
 
 
 def deployment_configuration(deployment_info: DeploymentInfo) -> Workflow:
     """Create a chain of steps that defines our deployment pipeline"""
-    config = _get_config(deployment_info.artifact_bucket, deployment_info.artifact_key)
+    # config = _get_config(deployment_info.artifact_bucket, deployment_info.artifact_key)
 
-    get_latest_versions = compute.LambdaStep(
-        state_id="Get Latest Artifact Versions",
-        parameters={
-            "FunctionName": os.environ["SET_VERSION_LAMBDA_ARN"],
-            "Payload": {
-                # TODO: Fix assumptions
-                "role_to_assume": os.environ["SET_VERSION_ROLE"],
-                "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
-                "get_versions": True,
-                "set_versions": False,
-                "ecr_applications": [],
-                "lambda_applications": [],
-                "lambda_s3_bucket": os.environ["SET_VERSION_LAMBDA_S3_BUCKET"],
-                "lambda_s3_prefix": os.environ["SET_VERSION_LAMBDA_S3_PREFIX"],
-                "frontend_applications": [],
-                "frontend_s3_bucket": os.environ["SET_VERSION_FRONTEND_S3_BUCKET"],
-                "frontend_s3_prefix": os.environ["SET_VERSION_FRONTEND_S3_PREFIX"]
-            }
-        },
-        result_selector={
-            "ecr.$": "$.Payload.ecr",
-            "frontend.$": "$.Payload.frontend",
-            "lambda.$": "$.Payload.lambda"
-        },
-        result_path="$.versions"
-    )
+    # get_latest_versions = compute.LambdaStep(
+    #     state_id="Get Latest Artifact Versions",
+    #     parameters={
+    #         "FunctionName": os.environ["SET_VERSION_LAMBDA_ARN"],
+    #         "Payload": {
+    #             # TODO: Fix assumptions
+    #             "role_to_assume": os.environ["SET_VERSION_ROLE"],
+    #             "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
+    #             "get_versions": True,
+    #             "set_versions": False,
+    #             "ecr_applications": [],
+    #             "lambda_applications": [],
+    #             "lambda_s3_bucket": os.environ["SET_VERSION_LAMBDA_S3_BUCKET"],
+    #             "lambda_s3_prefix": os.environ["SET_VERSION_LAMBDA_S3_PREFIX"],
+    #             "frontend_applications": [],
+    #             "frontend_s3_bucket": os.environ["SET_VERSION_FRONTEND_S3_BUCKET"],
+    #             "frontend_s3_prefix": os.environ["SET_VERSION_FRONTEND_S3_PREFIX"]
+    #         }
+    #     },
+    #     result_selector={
+    #         "ecr.$": "$.Payload.ecr",
+    #         "frontend.$": "$.Payload.frontend",
+    #         "lambda.$": "$.Payload.lambda"
+    #     },
+    #     result_path="$.versions"
+    # )
 
     pre_prod_deployment = states.Parallel(
         state_id="Service, Test, Stage",
@@ -224,20 +235,22 @@ def deployment_configuration(deployment_info: DeploymentInfo) -> Workflow:
     for environment in ("Service", "Test", "Stage"):
         pre_prod_deployment.add_branch(_deploy_to_environment(environment))
 
-    fail_or_deploy_to_prod = states.Choice(state_id=f"{pre_prod_deployment} - Check for errors")
+    fail_or_deploy_to_prod = states.Choice(state_id=f"{pre_prod_deployment.state_id} - Check for errors")
     # We don't want to deploy to prod if any the previous steps failed
     fail_or_deploy_to_prod.add_choice(
         ChoiceRule.IsPresent(
-            variable="$.results[*].Error",
+            # The states language doesn't support wildcards,
+            # so we just check the first one.
+            variable="$.results[0].Error",
             value=True
         ),
-        next_step=states.Fail(state_id=f"{pre_prod_deployment.state_id} Error")
+        next_step=states.Fail(state_id=f"{pre_prod_deployment.state_id} - Error")
     )
 
     fail_or_deploy_to_prod.default_choice(_deploy_to_environment("Prod"))
 
     main_flow = states.Chain(steps=[
-        get_latest_versions,
+        # get_latest_versions,
         pre_prod_deployment,
         fail_or_deploy_to_prod
     ])
@@ -250,14 +263,18 @@ def deployment_configuration(deployment_info: DeploymentInfo) -> Workflow:
             state_machine_arn=f"arn:aws:states:{region}:{account_id}:"
                               f"stateMachine:{workflow_name}"
         )
+
         workflow.update(definition=main_flow)
+        logger.info(f"Updated existing state machine: {workflow.state_machine_arn}")
     except boto3.client("stepfunctions").exceptions.StateMachineDoesNotExist:
         workflow = Workflow(
             name=f"deployment-{deployment_info.git_repo}",
             definition=main_flow,
             role=os.environ["STEP_FUNCTION_ROLE_ARN"],
         )
+
         workflow.create()
+        logger.info(f"Created new state machine: {workflow.state_machine_arn}")
 
     return workflow
 
@@ -301,5 +318,5 @@ def handler(event, _):
     logger.info("Finished Deployment Configuration")
 
     logger.info("Starting the pipeline!")
-    start_pipeline(workflow, deployment_info)
+    # start_pipeline(workflow, deployment_info)
     logger.info("Finished starting the pipeline!")

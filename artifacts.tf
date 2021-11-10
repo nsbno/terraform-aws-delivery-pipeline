@@ -18,6 +18,7 @@ module "pipeline_orchistrator_artifact" {
 resource "aws_lambda_function" "pipeline_orchestrator" {
     function_name = "${var.name_prefix}-delivery-pipeline-orchestrator"
     role = aws_iam_role.lambda_ecs_trigger.arn
+    timeout = 600
 
     runtime = "python3.9"
     handler = "pipeline_orchestrator.handler"
@@ -37,6 +38,113 @@ resource "aws_lambda_function" "pipeline_orchestrator" {
             ARTIFACT_BUCKET = aws_s3_bucket.artifacts.bucket
             DEPLOY_ROLE = var.deployment_role
             DEPLOY_ACCOUNTS = jsonencode(var.deployment_accounts)
+            STEP_FUNCTION_ROLE_ARN = aws_iam_role.sfn.arn
         }
     }
 }
+
+resource "aws_cloudwatch_log_group" "lambda" {
+    name = "/aws/lambda/${aws_lambda_function.pipeline_orchestrator.function_name}"
+}
+
+resource "aws_iam_role" "lambda_ecs_trigger" {
+    name = "${var.name_prefix}-delivery-pipeline-orchestrator"
+    assume_role_policy = data.aws_iam_policy_document.lambda_ecs_trigger_assume.json
+}
+
+data "aws_iam_policy_document" "lambda_ecs_trigger_assume" {
+    statement {
+        effect = "Allow"
+        actions = ["sts:AssumeRole"]
+        principals {
+            type = "Service"
+            identifiers = ["lambda.amazonaws.com"]
+        }
+    }
+}
+
+resource "aws_iam_role_policy" "lambda_allow_logging" {
+    role = aws_iam_role.lambda_ecs_trigger.id
+    policy = data.aws_iam_policy_document.lambda_allow_logging.json
+}
+
+data "aws_iam_policy_document" "lambda_allow_logging" {
+    statement {
+        effect = "Allow"
+        actions = [
+            "logs:CreateLogStream",
+            "logs:PutLogEvents"
+        ]
+        resources = [
+            "${aws_cloudwatch_log_group.lambda.arn}:*"
+        ]
+    }
+}
+
+resource "aws_iam_role_policy" "lambda_allow_step_functions" {
+    role = aws_iam_role.lambda_ecs_trigger.id
+    policy = data.aws_iam_policy_document.lambda_allow_step_functions.json
+}
+
+data "aws_iam_policy_document" "lambda_allow_step_functions" {
+    statement {
+        effect = "Allow"
+        actions = ["states:*"]
+        # TODO: Scope down to only allow step functions created by this module.
+        resources = ["*"]
+    }
+}
+
+resource "aws_iam_role_policy" "lambda_allow_s3" {
+    role = aws_iam_role.lambda_ecs_trigger.id
+    policy = data.aws_iam_policy_document.lambda_allow_s3.json
+}
+
+data "aws_iam_policy_document" "lambda_allow_s3" {
+    statement {
+        effect = "Allow"
+        actions = [
+            "s3:*"
+        ]
+        resources = [
+            aws_s3_bucket.artifacts.arn,
+            "${aws_s3_bucket.artifacts.arn}/*"
+        ]
+    }
+}
+
+resource "aws_iam_role_policy" "lambda_allow_ecs" {
+    role = aws_iam_role.lambda_ecs_trigger.id
+    policy = data.aws_iam_policy_document.lambda_allow_ecs.json
+}
+
+data "aws_iam_policy_document" "lambda_allow_ecs" {
+    statement {
+        effect = "Allow"
+        actions = [
+            "ecs:DeregisterTaskDefinition",
+            "ecs:RegisterTaskDefinition",
+        ]
+        resources = ["*"]
+    }
+    statement {
+        effect    = "Allow"
+        actions   = ["iam:PassRole"]
+        resources = [
+            aws_iam_role.deployment_task.arn,
+            aws_iam_role.execution_role.arn
+        ]
+    }
+    statement {
+        effect    = "Allow"
+        actions   = ["ecs:RunTask"]
+        resources = ["*"]
+
+        condition {
+            test = "ArnEquals"
+            variable = "ecs:cluster"
+            values = [aws_ecs_cluster.cluster.arn]
+        }
+    }
+}
+
