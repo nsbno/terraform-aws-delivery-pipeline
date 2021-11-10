@@ -122,36 +122,32 @@ class TaskDefinition:
         return self
 
 
-def _deploy_to_environment(name: str, ):
+def _deploy_to_environment(name: str, deployment_info: DeploymentInfo):
     """Construct a chain of steps to deploy to a single environment.
 
     :arg name: The name of the environment
     """
-    # set_version = compute.LambdaStep(
-    #     state_id=f"{name} - Set Versions",
-    #     parameters={
-    #         "FunctionName": os.environ["SET_VERSION_LABMDA_ARN"],
-    #         "Payload": {
-    #             # TODO: Fix assumptions
-    #             "role_to_assume": os.environ["SET_VERSION_ROLE_TO_ASSUME"],
-    #             "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
-    #             "get_versions": False,
-    #             "set_versions": True,
-    #             "ecr_applications": [],
-    #             "lambda_applications": [],
-    #             "lambda_s3_bucket": os.environ["SET_VERSION_LAMBDA_S3_BUCKET"],
-    #             "lambda_s3_prefix": os.environ["SET_VERSION_LAMBDA_S3_PREFIX"],
-    #             "frontend_applications": [],
-    #             "frontend_s3_prefix": "",
-    #             # TODO: This isn't applicable on the service account.
-    #             #       They're applied only when assuming a role in other
-    #             #       accounts.
-    #             "account_id": "local.test_account_id",
-    #             "versions.$": "$.versions",
-    #         }
-    #     },
-    #     result_path=None
-    # )
+    set_version = compute.LambdaStep(
+        state_id=f"{name} - Set Versions",
+        parameters={
+            "FunctionName": os.environ["SET_VERSION_LAMBDA_ARN"],
+            "Payload": {
+                "role_to_assume": os.environ["SET_VERSION_ROLE"],
+                "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
+                "get_versions": False,
+                "set_versions": True,
+                "ecr_applications": [],
+                "lambda_applications": [],
+                "lambda_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
+                "lambda_s3_prefix": f"nsbno/{deployment_info.git_repo}/lambdas",
+                "frontend_applications": [],
+                "frontend_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
+                "frontend_s3_prefix": f"nsbno/{deployment_info.git_repo}/frontends",
+                "account_id": json.loads(os.environ["DEPLOY_ACCOUNTS"])[name.lower()],
+                "versions.$": "$.versions.Payload",
+            }
+        },
+    )
 
     commands = [
         "echo Hello World"
@@ -188,11 +184,11 @@ def _deploy_to_environment(name: str, ):
     error_catcher = states.Pass(state_id=f"{name} - Error Catcher")
     catch_error = states.Catch(error_equals=["States.ALL"], next_step=error_catcher)
 
-    # set_version.add_catch(catch_error)
+    set_version.add_catch(catch_error)
     deploy.add_catch(catch_error)
 
     return states.Chain(steps=[
-        # set_version,
+        set_version,
         deploy
     ])
 
@@ -201,56 +197,67 @@ def deployment_configuration(deployment_info: DeploymentInfo) -> Workflow:
     """Create a chain of steps that defines our deployment pipeline"""
     # config = _get_config(deployment_info.artifact_bucket, deployment_info.artifact_key)
 
-    # get_latest_versions = compute.LambdaStep(
-    #     state_id="Get Latest Artifact Versions",
-    #     parameters={
-    #         "FunctionName": os.environ["SET_VERSION_LAMBDA_ARN"],
-    #         "Payload": {
-    #             # TODO: Fix assumptions
-    #             "role_to_assume": os.environ["SET_VERSION_ROLE"],
-    #             "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
-    #             "get_versions": True,
-    #             "set_versions": False,
-    #             "ecr_applications": [],
-    #             "lambda_applications": [],
-    #             "lambda_s3_bucket": os.environ["SET_VERSION_LAMBDA_S3_BUCKET"],
-    #             "lambda_s3_prefix": os.environ["SET_VERSION_LAMBDA_S3_PREFIX"],
-    #             "frontend_applications": [],
-    #             "frontend_s3_bucket": os.environ["SET_VERSION_FRONTEND_S3_BUCKET"],
-    #             "frontend_s3_prefix": os.environ["SET_VERSION_FRONTEND_S3_PREFIX"]
-    #         }
-    #     },
-    #     result_selector={
-    #         "ecr.$": "$.Payload.ecr",
-    #         "frontend.$": "$.Payload.frontend",
-    #         "lambda.$": "$.Payload.lambda"
-    #     },
-    #     result_path="$.versions"
-    # )
+    get_latest_versions = compute.LambdaStep(
+        state_id="Get Latest Artifact Versions",
+        parameters={
+            "FunctionName": os.environ["SET_VERSION_LAMBDA_ARN"],
+            "Payload": {
+                "role_to_assume": os.environ["SET_VERSION_ROLE"],
+                "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
+                "get_versions": True,
+                "set_versions": False,
+                "ecr_applications": [],
+                "lambda_applications": [],
+                "lambda_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
+                "lambda_s3_prefix": f"nsbno/{deployment_info.git_repo}/lambdas",
+                "frontend_applications": [],
+                "frontend_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
+                "frontend_s3_prefix": f"nsbno/{deployment_info.git_repo}/frontends"
+            }
+        },
+        result_path="$.versions"
+        # TODO: Ideally, we'd truncate the "Payload" part here, but the SDK
+        #       doesn't support the ResultSelector yet.
+        #       https://github.com/aws/aws-step-functions-data-science-sdk-python/pull/102
+        #
+        # result_selector={
+        #     "ecr.$": "$.Payload.ecr",
+        #     "frontend.$": "$.Payload.frontend",
+        #     "lambda.$": "$.Payload.lambda"
+        # },
+    )
 
     pre_prod_deployment = states.Parallel(
         state_id="Service, Test, Stage",
         result_path="$.results"
     )
     for environment in ("Service", "Test", "Stage"):
-        pre_prod_deployment.add_branch(_deploy_to_environment(environment))
+        pre_prod_deployment.add_branch(
+            _deploy_to_environment(environment, deployment_info)
+        )
 
-    fail_or_deploy_to_prod = states.Choice(state_id=f"{pre_prod_deployment.state_id} - Check for errors")
+    fail_or_deploy_to_prod = states.Choice(
+        state_id=f"{pre_prod_deployment.state_id} - Check for errors"
+    )
     # We don't want to deploy to prod if any the previous steps failed
     fail_or_deploy_to_prod.add_choice(
         ChoiceRule.IsPresent(
             # The states language doesn't support wildcards,
             # so we just check the first one.
+            # TODO: We should have one variable per branch in the parallel task.
+            #       If not we will just find errors from the first branch.
             variable="$.results[0].Error",
             value=True
         ),
         next_step=states.Fail(state_id=f"{pre_prod_deployment.state_id} - Error")
     )
 
-    fail_or_deploy_to_prod.default_choice(_deploy_to_environment("Prod"))
+    fail_or_deploy_to_prod.default_choice(
+        _deploy_to_environment("Prod", deployment_info)
+    )
 
     main_flow = states.Chain(steps=[
-        # get_latest_versions,
+        get_latest_versions,
         pre_prod_deployment,
         fail_or_deploy_to_prod
     ])

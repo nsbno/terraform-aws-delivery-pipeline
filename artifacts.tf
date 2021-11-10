@@ -39,6 +39,12 @@ resource "aws_lambda_function" "pipeline_orchestrator" {
             DEPLOY_ROLE = var.deployment_role
             DEPLOY_ACCOUNTS = jsonencode(var.deployment_accounts)
             STEP_FUNCTION_ROLE_ARN = aws_iam_role.sfn.arn
+
+            # TODO: These are mostly hard coded based on the previous setup.
+            SET_VERSION_LAMBDA_ARN = module.set_version.function_name
+            SET_VERSION_ROLE = "${var.name_prefix}-trusted-set-version"
+            SET_VERSION_SSM_PREFIX = "${var.name_prefix}/versions"
+            SET_VERSION_ARTIFACT_BUCKET = aws_s3_bucket.artifacts.arn
         }
     }
 }
