@@ -36,6 +36,10 @@ def handler(event, _):
     logger.debug(event)
 
     logger.info("Getting data from S3")
+    # TODO: TBH, we should remove the trigger from S3 and call directly from
+    #       the CI instead. That way we create a true separation between
+    #       artifact and deployment. That way we can also return errors to
+    #       the CI about the initialization of the deployment.
     deployment_info = DeploymentInfo.from_s3(
         bucket=event["Records"][0]["s3"]["bucket"]["name"],
         key=event["Records"][0]["s3"]["object"]["key"],
@@ -43,18 +47,14 @@ def handler(event, _):
     )
     logger.info("Got data from S3!")
 
+    logger.info("Getting deployment configuration")
+    config = get_deployment_config(deployment_info)
+    logger.info("Got deployment configuration")
+
     logger.info("Starting Deployment Configuration")
     machine = state_machine_builder(
-        environments={
-            "service": {},
-            "test": {},
-            "stage": {},
-            "prod": {}
-        },
-        flow=[
-            ["service", "test", "stage"],
-            "prod"
-        ],
+        environments=config["environments"],
+        flow=config["flow"],
         deployment_info=deployment_info
     )
     workflow = create_or_update_state_machine(
@@ -64,5 +64,5 @@ def handler(event, _):
     logger.info("Finished Deployment Configuration")
 
     logger.info("Starting the pipeline!")
-    # start_pipeline(workflow, deployment_info)
+    start_pipeline(workflow, deployment_info)
     logger.info("Finished starting the pipeline!")

@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 
@@ -6,84 +5,42 @@ import boto3
 from stepfunctions.steps.choice_rule import ChoiceRule
 from stepfunctions.steps import states, compute
 
-from pipeline_orchestrator.configuration import DeploymentInfo, TaskDefinition
+from pipeline_orchestrator.configuration import DeploymentInfo, DeploymentStep
 from stepfunctions.workflow import Workflow
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def _job(definition: str) -> states.State:
-    """Creates a job based on the config"""
-    pass
+def _environment(name: str, jobs: list[DeploymentStep]) -> states.Chain:
+    """Builds an environment based on a predefined list of jobs
 
+    Every step in an environment will be caught by an error catcher to allow
+    other branches in the flow step to complete. The flow step itself is
+    responsible for actually stopping the execution of the state machine.
 
-def _environment(name: str, deployment_info: DeploymentInfo) -> states.Chain:
-    """Creates a deployment flow for a single environment"""
-    set_version = compute.LambdaStep(
-        state_id=f"{name} - Set Versions",
-        parameters={
-            "FunctionName": os.environ["SET_VERSION_LAMBDA_ARN"],
-            "Payload": {
-                "role_to_assume": os.environ["SET_VERSION_ROLE"],
-                "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
-                "get_versions": False,
-                "set_versions": True,
-                "ecr_applications": [],
-                "lambda_applications": [],
-                "lambda_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
-                "lambda_s3_prefix": f"nsbno/{deployment_info.git_repo}/lambdas",
-                "frontend_applications": [],
-                "frontend_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
-                "frontend_s3_prefix": f"nsbno/{deployment_info.git_repo}/frontends",
-                "account_id": json.loads(os.environ["DEPLOY_ACCOUNTS"])[name.lower()],
-                "versions.$": "$.versions.Payload",
-            }
-        },
-    )
-
-    commands = [
-        "echo Hello World"
-    ]
-    command = " && ".join(commands)
-
-    # TODO: Temp
-    image = "vydev/terraform"
-    version = "1.0.8"
-
-    task_definition = TaskDefinition(
-        family="deploy",
-        image=f"{image}:{version}",
-        entrypoint=["/bin/sh", "-c"],
-        command=[command],
-        environment_variables={},
-        log_stream_prefix=name,
-    )
-    deploy = compute.EcsRunTaskStep(
-        state_id=f"{name} - Deploy",
-        parameters={
-            "LaunchType": "FARGATE",
-            "Cluster": os.environ["ECS_CLUSTER"],
-            "TaskDefinition": task_definition.arn,
-            "NetworkConfiguration": {
-                "AwsvpcConfiguration": {
-                    "Subnets": json.loads(os.environ["SUBNETS"]),
-                    "AssignPublicIp": "ENABLED",
-                }
-            }
-        },
-    )
-
+    :arg name: The name of the environment
+    :arg jobs: The jobs that this environment will execute
+    :returns: A chain with all the jobs from the given jobs list.
+    """
+    environment = states.Chain()
     error_catcher = states.Pass(state_id=f"{name} - Error Catcher")
     catch_error = states.Catch(error_equals=["States.ALL"], next_step=error_catcher)
 
-    set_version.add_catch(catch_error)
-    deploy.add_catch(catch_error)
+    job_type_functions = {
+        "lambda": compute.LambdaStep,
+        "ecs": compute.EcsRunTaskStep,
+    }
+    for job in jobs:
+        step = job_type_functions[job.type](
+            state_id=f"{name} - {job.name}",
+            parameters=job.parameters
+        )
 
-    return states.Chain(steps=[
-        set_version,
-        deploy
-    ])
+        step.add_catch(catch_error)
+        environment.append(step)
+
+    return environment
 
 
 def state_machine_builder(
@@ -124,7 +81,7 @@ def state_machine_builder(
 
     deployments = {
         # TODO: Use "jobs" when we actually have a working config parser.
-        environment: _environment(environment, deployment_info)
+        environment: _environment(environment, jobs)
         for environment, jobs in environments.items()
     }
 
