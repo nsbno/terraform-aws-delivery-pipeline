@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+from datetime import datetime
 
 from pipeline_orchestrator.state_machine import state_machine_builder, \
     create_or_update_state_machine
@@ -22,7 +23,12 @@ def start_pipeline(workflow: Workflow, deployment_info: DeploymentInfo) -> None:
     https://docs.aws.amazon.com/step-functions/latest/dg/concepts-read-consistency.html
     """
     workflow.execute(
-        name=deployment_info.git_sha1,
+        name=f"{deployment_info.git_sha1}-"
+             f"{deployment_info.git_branch}-"
+             f"{datetime.now().isoformat(timespec='seconds')}"
+            .replace(":", "-")
+            .replace("/", "-")
+        ,
         inputs=dataclasses.asdict(deployment_info),
     )
 

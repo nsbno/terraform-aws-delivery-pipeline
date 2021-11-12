@@ -24,11 +24,8 @@ class DeploymentInfo:
 
     def __post_init__(self):
         self.artifact_key = "/".join([
-            self.artifact_bucket,
             self.git_owner,
             self.git_repo,
-            "branches",
-            self.git_branch,
             f"{self.git_sha1}.zip"
         ])
 
@@ -185,7 +182,18 @@ def _create_deployment_steps(
                 DeploymentStep.for_ecs,
                 name="Deploy Terraform",
                 image="vydev/terraform:1.0.8",
-                command="echo 'Hello World'",
+                command=" && ".join([
+                    f"aws s3 cp s3://{deployment_info.artifact_bucket}/{deployment_info.artifact_key} ./infrastructure.zip",
+                    f"unzip infrastructure.zip",
+
+                    f"aws configure set credential_source \"EcsContainer\"",
+                    f"aws configure set region \"{os.environ['AWS_REGION']}\"",
+                    f"aws configure set role_arn \"{os.environ['TASK_ROLE_ARN']}\"",
+
+                    f"cd terraform/{environment_name.lower()}",
+                    f"terraform init -no-color",
+                    f"terraform plan -no-color",
+                ]),
                 log_stream_prefix=f"{deployment_info.git_repo}/{environment_name.lower()}",
                 environment_variables={"TF_IN_AUTOMATION": "true"},
             )
@@ -212,22 +220,10 @@ def get_deployment_config(
     deployment_info: DeploymentInfo
 ) -> dict:
     """Loads information about this deployment from S3"""
-    # configuration = _load_deployment_configuration(
-    #     deployment_info.artifact_bucket,
-    #     deployment_info.artifact_key
-    # )
-    configuration = {
-        "flow": [
-            ["service", "test", "stage"],
-            "prod"
-        ],
-        "deployment": {
-            "steps": [
-                "bump_versions",
-                "deploy_terraform"
-            ]
-        }
-    }
+    configuration = _load_deployment_configuration(
+        deployment_info.artifact_bucket,
+        deployment_info.artifact_key
+    )
 
     deployment_steps_creator = _create_deployment_steps(
         configuration["deployment"]["steps"],

@@ -19,6 +19,7 @@ resource "aws_lambda_function" "pipeline_orchestrator" {
     function_name = "${var.name_prefix}-delivery-pipeline-orchestrator"
     role = aws_iam_role.lambda_ecs_trigger.arn
     timeout = 600
+    memory_size = 512
 
     runtime = "python3.9"
     handler = "pipeline_orchestrator.handler"
