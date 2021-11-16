@@ -1,5 +1,13 @@
 import logging
 import os
+from functools import partial
+
+from stepfunctions.steps.states import Task
+
+from stepfunctions.steps.integration_resources import IntegrationPattern, \
+    get_service_integration_arn
+from stepfunctions.steps.compute import ECS_SERVICE_NAME, EcsApi
+from stepfunctions.steps.fields import Field
 
 import boto3
 from stepfunctions.steps.choice_rule import ChoiceRule
@@ -10,6 +18,40 @@ from stepfunctions.workflow import Workflow
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+
+# TODO: This is here while we wait for my PR to be accepted to the sfn module
+#       https://github.com/aws/aws-step-functions-data-science-sdk-python/pull/180
+class EcsRunTaskStep(Task):
+    def __init__(
+        self,
+        state_id,
+        wait_for_completion=True,
+        wait_for_callback=False,
+        **kwargs
+    ):
+        if wait_for_completion and wait_for_callback:
+            raise ValueError("Only one of wait_for_completion and wait_for_callback can be true")
+
+        if wait_for_callback:
+            kwargs[Field.Resource.value] = get_service_integration_arn(
+                ECS_SERVICE_NAME,
+                EcsApi.RunTask,
+                IntegrationPattern.WaitForTaskToken
+            )
+        elif wait_for_completion:
+            kwargs[Field.Resource.value] = get_service_integration_arn(
+                ECS_SERVICE_NAME,
+                EcsApi.RunTask,
+                IntegrationPattern.WaitForCompletion
+            )
+        else:
+            kwargs[Field.Resource.value] = get_service_integration_arn(
+                ECS_SERVICE_NAME,
+                EcsApi.RunTask
+            )
+
+        super(EcsRunTaskStep, self).__init__(state_id, **kwargs)
 
 
 def _environment(name: str, jobs: list[DeploymentStep]) -> states.Chain:
@@ -29,7 +71,11 @@ def _environment(name: str, jobs: list[DeploymentStep]) -> states.Chain:
 
     job_type_functions = {
         "lambda": compute.LambdaStep,
-        "ecs": compute.EcsRunTaskStep,
+        "ecs": partial(
+            EcsRunTaskStep,
+            wait_for_completion=False,
+            wait_for_callback=True
+        ),
     }
     for job in jobs:
         step = job_type_functions[job.type](

@@ -66,6 +66,24 @@ data "aws_iam_policy_document" "ecs_allow_logging" {
     }
 }
 
+resource "aws_iam_role_policy" "ecs_allow_step_function_invoke" {
+    role = aws_iam_role.deployment_task.id
+    policy = data.aws_iam_policy_document.ecs_allow_step_function_invoke.json
+}
+
+data "aws_iam_policy_document" "ecs_allow_step_function_invoke" {
+    statement {
+        effect = "Allow"
+        actions = [
+            "states:SendTaskSuccess",
+            "states:SendTaskFailure",
+        ]
+        resources = [
+            "*"
+        ]
+    }
+}
+
 resource "aws_iam_role_policy" "allow_artifact_bucket_access" {
     role   = aws_iam_role.deployment_task.id
     policy = data.aws_iam_policy_document.allow_artifact_bucket_access.json

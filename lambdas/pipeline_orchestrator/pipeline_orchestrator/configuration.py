@@ -93,6 +93,7 @@ class DeploymentStep:
         if "parameters" not in kwargs:
             kwargs["parameters"] = {}
 
+        # TODO: Pass task token to sidecar
         kwargs["parameters"] = {
             "LaunchType": "FARGATE",
             "Cluster": os.environ["ECS_CLUSTER"],
@@ -102,6 +103,18 @@ class DeploymentStep:
                     "Subnets": json.loads(os.environ["SUBNETS"]),
                     "AssignPublicIp": "ENABLED",
                 }
+            },
+            # TODO: This will be to weak of a coupling for something that really
+            #       is a tight coupling. So find a better solution.
+            #       Maybe do something with the task definition registration?
+            "Overrides": {
+                "ContainerOverrides": [{
+                    "Name": "step_function_reporter",
+                    "Environment": [{
+                        "Name": "TASK_TOKEN",
+                        "Value.$": "$$.Task.Token"
+                    }]
+                }]
             },
             **kwargs["parameters"]
         }
@@ -201,6 +214,12 @@ def _create_deployment_steps(
 
         built_steps = []
         for step in steps:
+            if isinstance(step, dict):
+                # There will only be one value in here
+                name = list(step.keys())[0]
+                values = step[name]
+
+                built_steps.append(predefined_steps[name](**values))
             if isinstance(step, str):
                 built_steps.append(predefined_steps[step]())
 
@@ -268,6 +287,42 @@ class TaskDefinition:
     def __post_init__(self):
         ecs_client = boto3.client("ecs")
 
+        main_container = {
+            "name": "main",
+            "image": self.image,
+            "entryPoint": self.entrypoint,
+            "command": self.command,
+            "environment": [
+                {"name": name, "value": value}
+                for name, value in self.environment_variables.items()
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": self.log_group,
+                    "awslogs-region": self.log_region,
+                    "awslogs-stream-prefix": self.log_stream_prefix,
+                },
+            }
+        }
+
+        step_function_sidecar = {
+            "name": "step_function_reporter",
+            "image": "vydev/stepfunctions-sidecar:latest",
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": self.log_group,
+                    "awslogs-region": self.log_region,
+                    "awslogs-stream-prefix": self.log_stream_prefix,
+                },
+            },
+            "environment": [
+                # TODO: Don't hardcode this
+                {"name": "MAIN_CONTAINER_NAME", "value": "main"}
+            ]
+        }
+
         response = ecs_client.register_task_definition(
             family=self.family,
             taskRoleArn=self.task_role_arn,
@@ -277,24 +332,8 @@ class TaskDefinition:
             memory=self.memory,
             requiresCompatibilities=[self.compatability],
             containerDefinitions=[
-                {
-                    "name": self.family,
-                    "image": self.image,
-                    "entryPoint": self.entrypoint,
-                    "command": self.command,
-                    "environment": [
-                        {"name": name, "value": value}
-                        for name, value in self.environment_variables.items()
-                    ],
-                    "logConfiguration": {
-                        "logDriver": "awslogs",
-                        "options": {
-                            "awslogs-group": self.log_group,
-                            "awslogs-region": self.log_region,
-                            "awslogs-stream-prefix": self.log_stream_prefix,
-                        },
-                    }
-                },
+                main_container,
+                step_function_sidecar
             ],
         )
 
