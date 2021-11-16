@@ -1,0 +1,3 @@
+= Per account permissions for Pipeline
+
+This module gives the pipeline access to deploy in the given account.
