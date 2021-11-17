@@ -160,72 +160,73 @@ def _load_deployment_configuration(bucket: str, key: str) -> dict:
 
 
 def _create_deployment_steps(
+    environment_name: str,
     steps: list[Union[dict, str]],
     deployment_info: DeploymentInfo
-) -> Callable:
-    """Creates a builder for each environment.
+) -> list:
+    """Creates steps for an environment
 
+    :arg environment_name: The name of the environment we're deploying to
     :arg steps: The steps that every deployment environment will run
     :arg deployment_info: Information about this spesific deployment.
     """
-    def deployment_steps(environment_name: str):
-        """Builds the steps that will be used for each d"""
-        predefined_steps = {
-            "bump_versions": partial(
-                DeploymentStep.for_lambda,
-                name="Bump Versions",
-                function_name=os.environ["SET_VERSION_LAMBDA_ARN"],
-                payload={
-                    "role_to_assume": os.environ["SET_VERSION_ROLE"],
-                    "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
-                    "get_versions": False,
-                    "set_versions": True,
-                    "ecr_applications": [],
-                    "lambda_applications": [],
-                    "lambda_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
-                    "lambda_s3_prefix": f"nsbno/{deployment_info.git_repo}/lambdas",
-                    "frontend_applications": [],
-                    "frontend_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
-                    "frontend_s3_prefix": f"nsbno/{deployment_info.git_repo}/frontends",
-                    "account_id": json.loads(os.environ["DEPLOY_ACCOUNTS"])[environment_name.lower()],
-                    "versions.$": "$.versions.Payload",
-                }
-            ),
-            "deploy_terraform": partial(
-                DeploymentStep.for_ecs,
-                name="Deploy Terraform",
-                image="vydev/terraform:1.0.8",
-                command=" && ".join([
-                    f"aws s3 cp s3://{deployment_info.artifact_bucket}/{deployment_info.artifact_key} ./infrastructure.zip",
-                    f"unzip infrastructure.zip",
+    predefined_steps = {
+        "bump_versions": lambda step_values: DeploymentStep.for_lambda(
+            name="Bump Versions",
+            function_name=os.environ["SET_VERSION_LAMBDA_ARN"],
+            payload={
+                "role_to_assume": os.environ["SET_VERSION_ROLE"],
+                "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
+                "get_versions": False,
+                "set_versions": True,
+                "ecr_applications": [],
+                "lambda_applications": [],
+                "lambda_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
+                "lambda_s3_prefix": f"nsbno/{deployment_info.git_repo}/lambdas",
+                "frontend_applications": [],
+                "frontend_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
+                "frontend_s3_prefix": f"nsbno/{deployment_info.git_repo}/frontends",
+                "account_id": json.loads(os.environ["DEPLOY_ACCOUNTS"])[environment_name.lower()],
+                "versions.$": "$.versions.Payload",
+            }
+        ),
+        "deploy_terraform": lambda step_values: DeploymentStep.for_ecs(
+            name="Deploy Terraform",
+            image=f"vydev/terraform:{step_values.get('version', '1.0.0')}",
+            command=" && ".join([
+                f"aws s3 cp s3://{deployment_info.artifact_bucket}/{deployment_info.artifact_key} ./infrastructure.zip",
+                f"unzip infrastructure.zip",
 
-                    f"aws configure set credential_source \"EcsContainer\"",
-                    f"aws configure set region \"{os.environ['AWS_REGION']}\"",
-                    f"aws configure set role_arn \"{os.environ['TASK_ROLE_ARN']}\"",
+                f"aws configure set credential_source \"EcsContainer\"",
+                f"aws configure set region \"{os.environ['AWS_REGION']}\"",
+                f"aws configure set role_arn \"{os.environ['TASK_ROLE_ARN']}\"",
 
-                    f"cd terraform/{environment_name.lower()}",
-                    f"terraform init -no-color",
-                    f"terraform plan -no-color",
-                ]),
-                log_stream_prefix=f"{deployment_info.git_repo}/{environment_name.lower()}",
-                environment_variables={"TF_IN_AUTOMATION": "true"},
+                f"cd terraform/{environment_name.lower()}",
+                f"terraform init -no-color",
+                f"terraform plan -no-color",
+            ]),
+            log_stream_prefix=f"{deployment_info.git_repo}/{environment_name.lower()}",
+            environment_variables={"TF_IN_AUTOMATION": "true"},
+        )
+    }
+
+    built_steps = []
+    for step in steps:
+        if isinstance(step, dict):
+            # Sometimes we might want to pass values
+            # There will only be one value in here
+            step_name = list(step.keys())[0]
+            step_options = step[step_name]
+
+            built_steps.append(
+                predefined_steps[step_name](step_options)
             )
-        }
+        if isinstance(step, str):
+            built_steps.append(
+                predefined_steps[step]({})
+            )
 
-        built_steps = []
-        for step in steps:
-            if isinstance(step, dict):
-                # There will only be one value in here
-                name = list(step.keys())[0]
-                values = step[name]
-
-                built_steps.append(predefined_steps[name](**values))
-            if isinstance(step, str):
-                built_steps.append(predefined_steps[step]())
-
-        return built_steps
-
-    return deployment_steps
+    return built_steps
 
 
 def _flatten(list_: list) -> list:
@@ -244,19 +245,18 @@ def get_deployment_config(
         deployment_info.artifact_key
     )
 
-    deployment_steps_creator = _create_deployment_steps(
-        configuration["deployment"]["steps"],
-        deployment_info
-    )
-
     environments = {
-        environment: deployment_steps_creator(environment)
+        environment: _create_deployment_steps(
+            environment,
+            configuration["deployment"]["steps"],
+            deployment_info
+        )
         for environment in _flatten(configuration["flow"])
     }
 
     return {
         "flow": configuration["flow"],
-        "environments": environments
+        "environments": environments,
     }
 
 
