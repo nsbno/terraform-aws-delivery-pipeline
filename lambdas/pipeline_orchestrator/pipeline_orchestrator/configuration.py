@@ -179,13 +179,6 @@ def _create_deployment_steps(
                 "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
                 "get_versions": False,
                 "set_versions": True,
-                "ecr_applications": [],
-                "lambda_applications": [],
-                "lambda_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
-                "lambda_s3_prefix": f"nsbno/{deployment_info.git_repo}/lambdas",
-                "frontend_applications": [],
-                "frontend_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
-                "frontend_s3_prefix": f"nsbno/{deployment_info.git_repo}/frontends",
                 "account_id": json.loads(os.environ["DEPLOY_ACCOUNTS"])[environment_name.lower()],
                 "versions.$": "$.versions.Payload",
             }
@@ -257,6 +250,7 @@ def get_deployment_config(
     return {
         "flow": configuration["flow"],
         "environments": environments,
+        "applications": configuration["applications"],
     }
 
 

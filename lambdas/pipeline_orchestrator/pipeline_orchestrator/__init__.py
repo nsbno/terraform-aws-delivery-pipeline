@@ -61,6 +61,7 @@ def handler(event, _):
     machine = state_machine_builder(
         environments=config["environments"],
         flow=config["flow"],
+        applications=config["applications"],
         deployment_info=deployment_info
     )
     workflow = create_or_update_state_machine(

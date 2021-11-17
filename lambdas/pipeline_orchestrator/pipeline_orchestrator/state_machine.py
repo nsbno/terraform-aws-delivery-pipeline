@@ -92,6 +92,7 @@ def _environment(name: str, jobs: list[DeploymentStep]) -> states.Chain:
 def state_machine_builder(
     environments: dict,
     flow: list,
+    applications: dict,
     deployment_info: DeploymentInfo
 ) -> states.Chain:
     """Builds our state machine based on the git info and deployment config"""
@@ -104,11 +105,11 @@ def state_machine_builder(
                 "ssm_prefix": os.environ["SET_VERSION_SSM_PREFIX"],
                 "get_versions": True,
                 "set_versions": False,
-                "ecr_applications": [],
-                "lambda_applications": [],
+                "ecr_applications": applications["ecr"],
+                "lambda_applications": applications["lambda"],
                 "lambda_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
                 "lambda_s3_prefix": f"{deployment_info.git_repo}/lambdas",
-                "frontend_applications": [],
+                "frontend_applications": applications["frontend"],
                 "frontend_s3_bucket": os.environ["SET_VERSION_ARTIFACT_BUCKET"],
                 "frontend_s3_prefix": f"{deployment_info.git_repo}/frontends"
             }
