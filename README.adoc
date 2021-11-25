@@ -76,7 +76,7 @@ This is done via the extra permission module.
 [source,hcl-terraform]
 ----
 module "deployment_pipeline_permissions" {
-  source = "github.com/nsbno/terraform-aws-continuous-delivery//extras/permissions"
+  source = "github.com/nsbno/terraform-aws-delivery-pipeline//extras/permissions"
 
   name_prefix = "deployment"
   service_account_id = local.service_account_id
@@ -89,7 +89,7 @@ Place this module in your `service` account.
 [source,hcl-terraform]
 ----
 module "deployment_pipeline" {
-  source = "github.com/nsbno/terraform-aws-continuous-delivery/"
+  source = "github.com/nsbno/terraform-aws-delivery-pipeline/"
 
   name_prefix = "deployment"
 
