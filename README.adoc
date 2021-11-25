@@ -34,6 +34,40 @@ flow:
   - prod
 ----
 
+== Features
+
+The pipeline has some features that make your life easier.
+All the following examples are top level stanzas that you can just drop right into your configuration.
+
+Deployment Order::
+Deploy your environments in any order you want. Each top level
+Want to be a madman and deploy production first? Go ahead (but please don't).
++
+[source,yaml]
+----
+flow:
+  - [service, test, stage]
+  - prod
+----
+
+Keep Versions Up To Date::
+Specify applications you want to always keep up to date, based on a tag.
++
+[source,yaml]
+----
+applications:
+  ecr:
+    - name: demo-container
+      tag_filters: [master-branch]
+  lambda:
+    - name: demo-serverless
+      tag_filters: [master-branch]
+  frontend:
+    - name: demo-frontend
+      tag_filters: [master-branch]
+----
+
+
 == Setup
 
 First, we need to make sure the pipeline has permission to deploy to all the relevant accounts.
