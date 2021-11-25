@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import os
 from datetime import datetime
 
 from pipeline_orchestrator.state_machine import state_machine_builder, \
@@ -46,10 +47,9 @@ def handler(event, _):
     #       the CI instead. That way we create a true separation between
     #       artifact and deployment. That way we can also return errors to
     #       the CI about the initialization of the deployment.
-    deployment_info = DeploymentInfo.from_s3(
-        bucket=event["Records"][0]["s3"]["bucket"]["name"],
-        key=event["Records"][0]["s3"]["object"]["key"],
-        version_id=event["Records"][0]["s3"]["object"].get("versionId", None)
+    deployment_info = DeploymentInfo.from_lambda(
+        event=event,
+        artifact_bucket=os.environ["ARTIFACT_BUCKET"]
     )
     logger.info("Got data from S3!")
 

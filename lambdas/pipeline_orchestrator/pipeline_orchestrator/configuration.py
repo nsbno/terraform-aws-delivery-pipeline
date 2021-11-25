@@ -30,14 +30,8 @@ class DeploymentInfo:
         ])
 
     @classmethod
-    def from_s3(cls, bucket: str, key: str, version_id: str) -> "DeploymentInfo":
-        """Get the data from S3"""
-        s3_client = boto3.resource("s3")
-
-        trigger_file = s3_client.Object(bucket, key)
-        data = trigger_file.get()["Body"].read()
-
-        return cls(**json.loads(data), artifact_bucket=bucket)
+    def from_lambda(cls, event: dict, artifact_bucket: str) -> "DeploymentInfo":
+        return cls(**json.loads(**event, artifact_bucket=artifact_bucket))
 
 
 @dataclass
