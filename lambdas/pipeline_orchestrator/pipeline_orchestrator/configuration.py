@@ -31,7 +31,7 @@ class DeploymentInfo:
 
     @classmethod
     def from_lambda(cls, event: dict, artifact_bucket: str) -> "DeploymentInfo":
-        return cls(**json.loads(**event, artifact_bucket=artifact_bucket))
+        return cls(**event, artifact_bucket=artifact_bucket)
 
 
 @dataclass
