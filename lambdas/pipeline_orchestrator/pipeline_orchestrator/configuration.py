@@ -244,7 +244,10 @@ def get_deployment_config(
     return {
         "flow": configuration["flow"],
         "environments": environments,
-        "applications": configuration["applications"],
+        "applications": collections.defaultdict(
+            list,
+            configuration["applications"],
+        ),
     }
 
 
