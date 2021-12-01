@@ -4,6 +4,7 @@
  * These are the resources needed to be able to deploy a functioning SFN pipeline.
  */
 resource "aws_iam_role" "sfn" {
+    name = "${var.name_prefix}-step-function-pipeline"
     assume_role_policy = data.aws_iam_policy_document.sfn_assume.json
 }
 

@@ -102,6 +102,19 @@ data "aws_iam_policy_document" "lambda_allow_step_functions" {
     }
 }
 
+resource "aws_iam_role_policy" "lambda_allow_pass_role_to_step_functions" {
+    role   = aws_iam_role.lambda_ecs_trigger.id
+    policy = data.aws_iam_policy_document.lambda_allow_pass_role_to_step_functions.json
+}
+
+data "aws_iam_policy_document" "lambda_allow_pass_role_to_step_functions" {
+    statement {
+        effect = "Allow"
+        actions = ["iam:PassRole"]
+        resources = [aws_iam_role.sfn.arn]
+    }
+}
+
 resource "aws_iam_role_policy" "lambda_allow_s3" {
     role = aws_iam_role.lambda_ecs_trigger.id
     policy = data.aws_iam_policy_document.lambda_allow_s3.json
