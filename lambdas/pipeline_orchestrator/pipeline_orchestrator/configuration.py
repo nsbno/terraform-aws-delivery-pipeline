@@ -164,6 +164,11 @@ def _create_deployment_steps(
     :arg steps: The steps that every deployment environment will run
     :arg deployment_info: Information about this spesific deployment.
     """
+    cross_account_deploy_role_arn = \
+        f"arn:aws:iam" \
+        f"::{json.loads(os.environ['DEPLOY_ACCOUNTS'])[environment_name]}" \
+        f":role/{os.environ['DEPLOY_ROLE']}"
+
     predefined_steps = {
         "bump_versions": lambda step_values: DeploymentStep.for_lambda(
             name="Bump Versions",
@@ -186,7 +191,7 @@ def _create_deployment_steps(
 
                 f"aws configure set credential_source \"EcsContainer\"",
                 f"aws configure set region \"{os.environ['AWS_REGION']}\"",
-                f"aws configure set role_arn \"{os.environ['TASK_ROLE_ARN']}\"",
+                f"aws configure set role_arn \"{cross_account_deploy_role_arn}\"",
 
                 f"cd terraform/{environment_name.lower()}",
                 f"terraform init -no-color",
