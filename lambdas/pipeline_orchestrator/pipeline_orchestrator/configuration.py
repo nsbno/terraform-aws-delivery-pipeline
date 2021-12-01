@@ -195,7 +195,7 @@ def _create_deployment_steps(
 
                 f"cd terraform/{environment_name.lower()}",
                 f"terraform init -no-color",
-                f"terraform plan -no-color",
+                f"terraform apply -no-color -auto-approve",
             ]),
             log_stream_prefix=f"{deployment_info.git_repo}/{environment_name.lower()}",
             environment_variables={"TF_IN_AUTOMATION": "true"},
