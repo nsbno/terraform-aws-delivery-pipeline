@@ -1,6 +1,7 @@
 import dataclasses
 import logging
 import os
+import time
 from datetime import datetime
 
 from pipeline_orchestrator.state_machine import state_machine_builder, \
@@ -23,6 +24,11 @@ def start_pipeline(workflow: Workflow, deployment_info: DeploymentInfo) -> None:
     Find out more here:
     https://docs.aws.amazon.com/step-functions/latest/dg/concepts-read-consistency.html
     """
+    logger.info(
+        "Sleeping for 5 seconds to make sure that the pipeline is changed..."
+    )
+    time.sleep(5)
+
     workflow.execute(
         name=f"{deployment_info.git_sha1}-"
              f"{deployment_info.git_branch}-"
