@@ -196,7 +196,10 @@ def create_or_update_state_machine(
                               f"stateMachine:{name}"
         )
 
-        workflow.update(definition=definition)
+        workflow.update(
+            definition=definition,
+            role=os.environ["STEP_FUNCTION_ROLE_ARN"],
+        )
         logger.info(f"Updated existing state machine: {workflow.state_machine_arn}")
     except boto3.client("stepfunctions").exceptions.StateMachineDoesNotExist:
         workflow = Workflow(
