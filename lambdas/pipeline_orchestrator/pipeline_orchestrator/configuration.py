@@ -251,7 +251,7 @@ def get_deployment_config(
         "environments": environments,
         "applications": collections.defaultdict(
             list,
-            configuration["applications"],
+            configuration.get("applications", {}),
         ),
     }
 
