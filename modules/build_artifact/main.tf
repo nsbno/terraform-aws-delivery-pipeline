@@ -8,7 +8,7 @@ resource "null_resource" "lambda_exporter" {
     # (some local-exec provisioner blocks, presumably...)
     provisioner "local-exec" {
         working_dir = var.input_path
-        command = "python3 -m pip install -r requirements.txt --target ."
+        command = "python3 -m pip install -r requirements.txt --target . ${var.no_dependencies ? "--no-dependencies" : ""}"
     }
 
     triggers = {
