@@ -33,6 +33,15 @@ flow:
   - prod
 ----
 
+== Examples
+
+In the link:examples/[examples directory] you can find multiple examples.
+These can be helpful to set up the pipeline in your own team!
+
+link:examples/pipeline_setup[Pipeline Setup]::
+This example shows you how to set up the pipeline for your account set.
+It is specifically for your `<team>-aws` repository.
+
 == Features
 
 The pipeline has some features that make your life easier.

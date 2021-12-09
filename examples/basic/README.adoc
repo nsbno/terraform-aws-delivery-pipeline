@@ -1,6 +1,0 @@
-= Basic Usage Example
-
-In this example only the required parts are present.
-
-Check out link:service/main.tf[] to see the actual deployer configuration.
-The rest of the environments contain the required roles.

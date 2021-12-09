@@ -1,0 +1,8 @@
+= Pipeline Orchestrator Setup
+
+Check out link:service/main.tf[] to see the actual orchestrator configuration.
+The rest of the environments contain the required roles.
+
+The link:.circleci/config.yml[CircleCI configuration] contains the publish to the pipeline.
+
+The link:.deployment/config.yaml[deployment configuration] contains the definition for how the repository is deployed.

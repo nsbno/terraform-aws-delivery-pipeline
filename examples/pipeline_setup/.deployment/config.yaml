@@ -1,0 +1,10 @@
+version: 0.1
+
+deployment:
+  steps:
+    - deploy_terraform:
+        version: 1.0.0
+
+flow:
+  - [service, test, stage]
+  - prod
