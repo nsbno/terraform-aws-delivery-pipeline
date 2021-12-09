@@ -3,8 +3,8 @@
 :!toc-placement:
 :!toc-title:
 
-[abstract]
-A deployment pipeline for provisioning your resources into AWS
+A deployment pipeline for provisioning your resources into AWS!
+Configured in YAML, and aiming at being simple to use.
 
 toc::[]
 
@@ -14,7 +14,8 @@ This module gives your environment a deployment pipeline for your applications.
 Using a simple YAML file, you can deploy any repo you want!
 
 Here is how simple it can be to deploy a terraform repository:
-[source,yaml]
+
+[source, yaml]
 ----
 # .deployment/config.yaml
 
@@ -28,9 +29,7 @@ deployment:
 # In this case it's first service, test and stage that gets deployed.
 # Production then deploys when those are successful.
 flow:
-  - - service
-    - test
-    - stage
+  - [service, test, stage]
   - prod
 ----
 
@@ -39,10 +38,12 @@ flow:
 The pipeline has some features that make your life easier.
 All the following examples are top level stanzas that you can just drop right into your configuration.
 
-Deployment Order::
-Deploy your environments in any order you want. Each top level
-Want to be a madman and deploy production first? Go ahead (but please don't).
-+
+=== Deployment Order
+
+Deploy your environments in any order you want!
+Want to be a madman and deploy production first?
+Go ahead (but please don't).
+
 [source,yaml]
 ----
 flow:
@@ -50,9 +51,10 @@ flow:
   - prod
 ----
 
-Keep Versions Up To Date::
+=== Keep Versions Up To Date
+
 Specify applications you want to always keep up to date, based on a tag.
-+
+
 [source,yaml]
 ----
 applications:
