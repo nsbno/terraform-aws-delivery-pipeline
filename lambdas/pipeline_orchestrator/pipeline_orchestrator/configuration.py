@@ -193,6 +193,11 @@ def _create_deployment_steps(
                 f"aws configure set region \"{os.environ['AWS_REGION']}\"",
                 f"aws configure set role_arn \"{cross_account_deploy_role_arn}\"",
 
+                # The stepfunction dependency requires numpy and pandas.
+                # I've created a ticket for this in the stepfunction repo
+                # https://github.com/aws/aws-step-functions-data-science-sdk-python/issues/184
+                f"apk add gcc g++ make",
+
                 f"cd terraform/{environment_name.lower()}",
                 f"terraform init -no-color",
                 f"terraform apply -no-color -auto-approve",
