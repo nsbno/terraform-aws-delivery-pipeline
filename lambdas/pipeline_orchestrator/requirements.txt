@@ -1,24 +1,3 @@
-# This requirements file is expected to be run with --no-deps.
-# This is because stepfunctions packages a ton of dependencies, among others:
-# numpy and pandas. This adds an external dependency on gcc and g++, and compile
-# takes a long time. Because of this, we install only the requirements for the
-# actual stepfunctions part of the depdenceny.
-
-# Our actual dependencies
-boto3==1.18.58
-PyYAML==5.4.1
-stepfunctions==2.2.0
-
-# Transitive dependencies from the packages above
-botocore==1.21.65
-jmespath==0.10.0
-python-dateutil==2.8.2
-s3transfer==0.5.0
-six==1.16.0
-urllib3==1.26.7
-
-# This is required by stepfunctions, but we never use it.
-# If we don't have it, the __init__.py of stepfunctions will fail because of a call to setuptools.
-# So we just have to have it installed, but we drop it's dependencies.
-sagemaker==2.1.0
-
+boto3
+pyyaml
+stepfunctions

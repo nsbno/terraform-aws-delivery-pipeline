@@ -13,9 +13,6 @@ module "pipeline_orchistrator_artifact" {
 
     input_path = "${path.module}/lambdas/pipeline_orchestrator"
     output_path = "${path.module}/lambdas/pipeline_orchestrator.zip"
-
-    # See the requirements.txt for more info about why.
-    no_dependencies = true
 }
 
 resource "aws_lambda_function" "pipeline_orchestrator" {
