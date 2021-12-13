@@ -8,24 +8,14 @@ resource "aws_s3_bucket" "artifacts" {
     bucket = "${var.account_id}-${var.name_prefix}-delivery-pipeline-artifacts"
 }
 
-module "pipeline_orchistrator_artifact" {
-    source = "./modules/build_artifact"
-
-    input_path = "${path.module}/lambdas/pipeline_orchestrator"
-    output_path = "${path.module}/lambdas/pipeline_orchestrator.zip"
-}
-
 resource "aws_lambda_function" "pipeline_orchestrator" {
     function_name = "${var.name_prefix}-delivery-pipeline-orchestrator"
     role = aws_iam_role.lambda_ecs_trigger.arn
     timeout = 600
     memory_size = 512
 
-    runtime = "python3.9"
-    handler = "pipeline_orchestrator.handler"
-
-    filename = module.pipeline_orchistrator_artifact.artifact.output_path
-    source_code_hash = module.pipeline_orchistrator_artifact.artifact.output_base64sha256
+    package_type = "Image"
+    image_uri = "471635792310.dkr.ecr.eu-west-1.amazonaws.com/deployment-pipeline-orchestrator:0.1"
 
     environment {
         variables = {
