@@ -1,0 +1,49 @@
+version: 2.1
+
+parameters:
+  # [...]
+  terraform_version:
+    type: string
+    default: "1.0.0"
+  artifact_bucket:
+    type: string
+    default: "125515308255-deployment-delivery-pipeline-artifacts"
+  deploy_function_name:
+    type: string
+    default: "deployment-delivery-pipeline-orchestrator"
+
+orbs:
+  # [...]
+  terraform: circleci/terraform@3.0.0
+  deployment: vydev/deployment@0.1.0
+
+workflows:
+  version: 2
+  build-and-deploy:
+    jobs:
+      # [...]
+      - terraform/validate:
+          checkout: true
+          tag: << pipeline.parameters.terraform_version >>
+          backend: false
+          matrix:
+            parameters:
+              path:
+                - terraform/service
+                - terraform/test
+                - terraform/stage
+                - terraform/prod
+      - deployment/build-and-upload-repo:
+          s3_bucket: << pipeline.parameters.artifact_bucket >>
+          requires:
+            - terraform/validate
+          filters:
+            branches:
+              only: master
+      - deployment/trigger-deployment:
+          lambda: << pipeline.parameters.deploy_function_name >>
+          requires:
+            - deployment/build-and-upload-repo
+          filters:
+            branches:
+              only: master

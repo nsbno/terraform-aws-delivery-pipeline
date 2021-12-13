@@ -42,6 +42,9 @@ link:examples/pipeline_setup[Pipeline Setup]::
 This example shows you how to set up the pipeline for your account set.
 It is specifically for your `<team>-aws` repository.
 
+link:examples/microservice[Microservice Deployment]::
+In this example, you can see how to deploy a simple microservice.
+
 == Features
 
 The pipeline has some features that make your life easier.
@@ -77,50 +80,3 @@ applications:
     - name: demo-frontend
       tag_filters: [master-branch]
 ----
-
-
-== Setup
-
-First, we need to make sure the pipeline has permission to deploy to all the relevant accounts.
-This is done via the extra permission module.
-
-[source,hcl-terraform]
-----
-module "deployment_pipeline_permissions" {
-  source = "github.com/nsbno/terraform-aws-delivery-pipeline//extras/permissions"
-
-  name_prefix = "deployment"
-  service_account_id = local.service_account_id
-}
-----
-
-Now, lets add the actual pipeline to our environment.
-Place this module in your `service` account.
-
-[source,hcl-terraform]
-----
-module "deployment_pipeline" {
-  source = "github.com/nsbno/terraform-aws-delivery-pipeline/"
-
-  name_prefix = "deployment"
-
-  deployment_accounts = {
-    service = "1111111111"
-    test = "2222222222"
-    stage = "3333333333"
-    prod = "4444444444"
-  }
-
-  deployment_role = module.deployment_pipeline_permissions.deployment_role
-  set_version_role = module.deployment_pipeline_permissions.set_version_role
-
-  account_id = "1111111111"
-  subnets = module.vpc.public_subnet_ids
-}
-----
-
-You can now move onto creating a configuration for each repo that you want to deploy 🎉
-
-== Usage
-
-// TODO: Details about the different parts of the YAML config.

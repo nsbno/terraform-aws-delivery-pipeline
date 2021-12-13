@@ -1,0 +1,15 @@
+version: 0.1
+
+applications:
+  ecr:
+    - name: my-app
+      tags: ["master-branch"]
+
+deployment:
+  steps:
+    - deploy_terraform:
+        version: 1.0.0
+
+flow:
+  - [test, stage]
+  - prod

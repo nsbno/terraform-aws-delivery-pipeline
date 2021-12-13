@@ -1,0 +1,3 @@
+= Microservice Example
+
+This is how to deploy a simple microservice with ECR.
