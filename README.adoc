@@ -80,3 +80,9 @@ applications:
     - name: demo-frontend
       tag_filters: [master-branch]
 ----
+
+== Migrate from old pipeline
+
+If you're using the old pipeline setup, we have a guide to follow to get you up to date with this one!
+
+Check out link:docs/migrate-from-old-pipeline.adoc[the migration guide in our docs]!

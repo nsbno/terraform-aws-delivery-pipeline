@@ -1,0 +1,201 @@
+= Migrating from old pipeline setups
+:toc:
+:!toc-title:
+:!toc-placement:
+
+In this guide, you will set up the new pipeline and remove the old one.
+
+Each step in this guide is equivalent to one commit on master, to make sure the process works nicely.
+
+toc::[]
+
+== Make sure you're on the correct branch
+
+These steps are going to happen on the master branch.
+This is to make sure that all the steps get built and deployed in the correct order.
+
+So to make sure you're on the correct branch, let's switch now!
+
+[source, bash]
+----
+git switch master
+----
+
+== Add the required modules for your new pipeline
+
+Now, we need to add the new pipeline, so it's ready to go for the latter steps.
+
+In your *service* account (`terraform/service/main.tf`), you have to add the following terraform:
+
+[source, hcl]
+----
+module "deployment_pipeline" {
+  # TODO: Make sure that you change the `ref` to the latest release!
+  source = "github.com/nsbno/terraform-aws-delivery-pipeline?ref=x.y.z"
+
+  name_prefix = "deployment"
+  deployment_accounts = {
+    service = local.service_account_id
+    test = local.test_account_id
+    stage = local.stage_account_id
+    prod = local.prod_account_id
+  }
+  deployment_role = "deployment-trusted-deployment"
+
+  account_id = local.service_account_id
+  subnets = module.vpc.public_subnet_ids
+}
+----
+
+In addition to that, your CI has to be able to trigger the new pipeline.
+
+[source, hcl]
+----
+# The CI must be able to trigger a deployment.
+resource "aws_iam_user_policy" "machine_user_lambda" {
+  user = module.ci_machine_user.user_name
+  policy = data.aws_iam_policy_document.machine_user_lambda.json
+}
+
+data "aws_iam_policy_document" "machine_user_lambda" {
+  statement {
+    effect = "Allow"
+    actions = ["lambda:InvokeFunction"]
+    resources = [module.deployment_pipeline.orchestrator_lambda_arn]
+  }
+}
+
+----
+
+Now you have to add roles to all your accounts.
+That means in `terraform/service/main.tf` and `terraform/template/main.tf`.
+
+[source, hcl]
+----
+module "deployment_pipeline_permissions" {
+  # TODO: Make sure that you change the `ref` to the latest release!
+  source = "github.com/nsbno/terraform-aws-delivery-pipeline?ref=x.y.z/extras/permissions"
+
+  name_prefix = "deployment"
+  service_account_id = local.service_account_id
+}
+----
+
+Now, we can commit and push the changes!
+
+[source, bash]
+----
+git add .
+git commit -m "Add new deployment pipeline and accompanying permissions"
+git push
+----
+
+== Enable the deployment pipeline for each repo
+
+Now it is time to change how you actually do deploys!
+
+For every repository you want to deploy, you have to add a `.deployment/config.yaml` file.
+
+[source, yaml]
+----
+version: 0.1
+
+applications:
+  ecr:
+    - name: your-ecr-repo-name
+      tag: master-branch
+
+deployment:
+  steps:
+    - deploy_terraform:
+        version: 1.0.0
+
+flow:
+  - [service, test, stage]
+  - prod
+----
+
+And modify your CircleCI build.
+In this example, your old code goes where the `# [...]` is.
+If you have any `stepfunction-ci` orb steps, remove those as well.
+
+[source, yaml]
+----
+
+parameters:
+  # [...]
+  terraform_version:
+    type: string
+    default: "1.0.0"
+  artifact_bucket:
+    type: string
+    default: "125515308255-deployment-delivery-pipeline-artifacts"
+  deploy_function_name:
+    type: string
+    default: "deployment-delivery-pipeline-orchestrator"
+
+orbs:
+  # [...]
+  terraform: circleci/terraform@3.0.0
+  deployment: vydev/deployment@0.1.0
+
+workflows:
+  version: 2
+  build-and-deploy:
+    jobs:
+      # [...]
+      - terraform/validate:
+          checkout: true
+          tag: << pipeline.parameters.terraform_version >>
+          backend: false
+          matrix:
+            parameters:
+              path:
+                - terraform/service
+                - terraform/test
+                - terraform/stage
+                - terraform/prod
+      - deployment/build-and-upload-repo:
+          s3_bucket: << pipeline.parameters.artifact_bucket >>
+          requires:
+            - terraform/validate
+          filters:
+            branches:
+              only: master
+      - deployment/trigger-deployment:
+          lambda: << pipeline.parameters.deploy_function_name >>
+          requires:
+            - deployment/build-and-upload-repo
+          filters:
+            branches:
+              only: master
+----
+
+Now, commit and push to apply the changes:
+
+[source, bash]
+----
+git add .
+git commit -m "Move deployment to new deployment pipeline"
+git push
+----
+
+
+== Remove the old deployment pipeline
+
+Now that all repositories have been moved over and tested with the new pipeline, it is time to remove the old pipeline.
+This is the fun part, because we will be removing more than 1000 lines of code 😍
+
+This step isn't the easiest to show, so take a look at link:https://github.com/nsbno/rollingstock-aws/commit/0dc70a4c958b2e1127a331c13f0e8f372d40d09a[commit 0dc70a in nsbno/rollingstock-aws] to get some guidance.
+If you're unsure, please don't hesitate to ask in #team-infrastructure-public!
+
+Now, once everything is removed, commit and push:
+
+[source, bash]
+----
+git add .
+git commit -m "Remove everything related to the old pipeline"
+git push
+----
+
+And now, you're fully migrated! 🎉
