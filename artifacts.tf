@@ -35,7 +35,7 @@ resource "aws_lambda_function" "pipeline_orchestrator" {
             SET_VERSION_LAMBDA_ARN = module.set_version.function_name
             SET_VERSION_ROLE = "${var.name_prefix}-trusted-set-version"
             SET_VERSION_SSM_PREFIX = "${var.name_prefix}/versions"
-            SET_VERSION_ARTIFACT_BUCKET = aws_s3_bucket.artifacts.arn
+            SET_VERSION_ARTIFACT_BUCKET = aws_s3_bucket.artifacts.bucket
         }
     }
 }
