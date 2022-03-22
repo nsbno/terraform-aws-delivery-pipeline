@@ -14,8 +14,7 @@ This module gives your environment a deployment pipeline for your applications.
 Using a simple YAML file, you can deploy any repo you want!
 
 Here is how simple it can be to deploy a terraform repository:
-
-[source, yaml]
+[source,yaml]
 ----
 # .deployment/config.yaml
 
@@ -66,9 +65,11 @@ flow:
 === Keep Versions Up To Date
 
 Specify applications you want to always keep up to date, based on a tag.
+Now you can access the current deployed version via a SSM parameter - `${var.name_prefix}/${var.application_name}`!
 
 [source,yaml]
 ----
+# Specify the applications you want to bump
 applications:
   ecr:
     - name: demo-container
@@ -79,6 +80,11 @@ applications:
   frontend:
     - name: demo-frontend
       tag_filters: [master-branch]
+
+steps:
+  # Activate automatic version bumping in the pipeline
+  - bump_versions
+  - # [...]
 ----
 
 == Migrate from old pipeline

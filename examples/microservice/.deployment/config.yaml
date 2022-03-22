@@ -1,5 +1,7 @@
 version: 0.1
 
+# The applications' section is where the bump_versions step will check and update
+# versions from.
 applications:
   ecr:
     - name: my-app
@@ -7,6 +9,11 @@ applications:
 
 deployment:
   steps:
+    # This gets the current commit SHA from git and places it in an SSM Parameter.
+    # You can use this SSM parameter in your terraform configuration to get automatic
+    # version pinning! 🎉
+    - bump_versions
+    # This will get your terraform deployed using terraform 1.0.0
     - deploy_terraform:
         version: 1.0.0
 
