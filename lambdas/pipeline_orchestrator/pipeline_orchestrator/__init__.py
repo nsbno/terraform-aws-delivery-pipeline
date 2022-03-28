@@ -43,16 +43,13 @@ def start_pipeline(workflow: Workflow, deployment_info: DeploymentInfo) -> None:
 def handler(event, _):
     """Orchestrates the program
 
-    :arg event: An S3 event
+    :arg event: An event with information about the deployment.
+                Must match the fields in DeploymentInfo.
     :arg _: The context, we don't use this.
     """
     logger.debug(event)
 
     logger.info("Getting data from S3")
-    # TODO: TBH, we should remove the trigger from S3 and call directly from
-    #       the CI instead. That way we create a true separation between
-    #       artifact and deployment. That way we can also return errors to
-    #       the CI about the initialization of the deployment.
     deployment_info = DeploymentInfo.from_lambda(
         event=event,
         artifact_bucket=os.environ["ARTIFACT_BUCKET"]
