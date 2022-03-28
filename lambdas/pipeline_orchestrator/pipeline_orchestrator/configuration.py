@@ -26,6 +26,8 @@ class DeploymentInfo:
         self.artifact_key = "/".join([
             self.git_owner,
             self.git_repo,
+            "branches",
+            self.git_branch,
             f"{self.git_sha1}.zip"
         ])
 
