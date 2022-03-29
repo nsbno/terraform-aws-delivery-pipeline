@@ -15,7 +15,7 @@ resource "aws_lambda_function" "pipeline_orchestrator" {
     memory_size = 512
 
     package_type = "Image"
-    image_uri = "471635792310.dkr.ecr.eu-west-1.amazonaws.com/deployment-pipeline-orchestrator:0.1"
+    image_uri = "471635792310.dkr.ecr.eu-west-1.amazonaws.com/deployment-pipeline-orchestrator:0.2"
 
     environment {
         variables = {
