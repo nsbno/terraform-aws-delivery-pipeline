@@ -65,7 +65,8 @@ flow:
 === Keep Versions Up To Date
 
 Specify applications you want to always keep up to date, based on a tag.
-Now you can access the current deployed version via a SSM parameter - `${var.name_prefix}/${var.application_name}`!
+Now you can access the current deployed version via a SSM parameter - `artifacts/<this-git-repo>/<application-name>`!
+You can find the location of the artifact in the sub-parameters `path` and `location`.
 
 [source,yaml]
 ----

@@ -13,7 +13,7 @@
  */
 
 module "set_version" {
-    source      = "github.com/nsbno/terraform-aws-pipeline-set-version?ref=ee68497"
+    source      = "github.com/nsbno/terraform-aws-pipeline-set-version?ref=0.2.0"
     name_prefix = var.name_prefix
 }
 
