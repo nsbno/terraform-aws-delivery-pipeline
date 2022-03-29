@@ -87,6 +87,25 @@ steps:
   - # [...]
 ----
 
+== Deploy Terraform
+
+Terraform deployments are easier than ever
+
+[source, yaml]
+----
+steps:
+    - deploy_terraform:
+        version: 1.1.0
+        # This is optional! The default is `terraform`.
+        # Each environment specified under "flow" must have its own folder in this directory.
+        directory: environments
+
+flow:
+  - service
+  - [test, stage]
+  - prod
+----
+
 == Migrate from old pipeline
 
 If you're using the old pipeline setup, we have a guide to follow to get you up to date with this one!
