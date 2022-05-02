@@ -37,3 +37,8 @@ variable "subnets" {
     description = "Subnet to deploy Fargate container in."
     type = list
 }
+
+variable "vpc_id" {
+    description = "VPC that the subnets are in"
+    type = string
+}

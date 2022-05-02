@@ -11,6 +11,8 @@ resource "aws_s3_bucket" "artifacts" {
 resource "aws_security_group" "deployment_task" {
   name  = "deployment_task"
   description = "Rules for deployment tasks"
+
+  vpc_id = var.vpc_id
 }
 
 resource "aws_lambda_function" "pipeline_orchestrator" {
