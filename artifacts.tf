@@ -8,6 +8,11 @@ resource "aws_s3_bucket" "artifacts" {
     bucket = "${var.account_id}-${var.name_prefix}-delivery-pipeline-artifacts"
 }
 
+resource "aws_security_group" "deployment_task" {
+  name  = "deployment_task"
+  description = "Rules for deployment tasks"
+}
+
 resource "aws_lambda_function" "pipeline_orchestrator" {
     function_name = "${var.name_prefix}-delivery-pipeline-orchestrator"
     role = aws_iam_role.lambda_ecs_trigger.arn
@@ -15,7 +20,7 @@ resource "aws_lambda_function" "pipeline_orchestrator" {
     memory_size = 512
 
     package_type = "Image"
-    image_uri = "471635792310.dkr.ecr.eu-west-1.amazonaws.com/deployment-pipeline-orchestrator:0.1"
+    image_uri = "471635792310.dkr.ecr.eu-west-1.amazonaws.com/deployment-pipeline-orchestrator:0.2"
 
     environment {
         variables = {
@@ -25,6 +30,7 @@ resource "aws_lambda_function" "pipeline_orchestrator" {
             TASK_ROLE_ARN = aws_iam_role.deployment_task.arn
             TASK_FAMILY = "delivery-pipeline"  # TODO
             SUBNETS = jsonencode(var.subnets)
+            SECURITY_GROUPS = jsonencode([aws_security_group.deployment_task.id])
             LOG_GROUP = aws_cloudwatch_log_group.ecs.name
             ARTIFACT_BUCKET = aws_s3_bucket.artifacts.bucket
             DEPLOY_ROLE = var.deployment_role
