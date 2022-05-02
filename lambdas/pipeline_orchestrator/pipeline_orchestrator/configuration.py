@@ -95,6 +95,7 @@ class DeploymentStep:
             "NetworkConfiguration": {
                 "AwsvpcConfiguration": {
                     "Subnets": json.loads(os.environ["SUBNETS"]),
+                    "SecurityGroups": json.loads(os.environ["SECURITY_GROUPS"]),
                     "AssignPublicIp": "ENABLED",
                 }
             },
