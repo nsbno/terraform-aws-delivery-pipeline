@@ -204,7 +204,17 @@ def _create_deployment_steps(
                 f"terraform apply -no-color -auto-approve",
             ]),
             log_stream_prefix=f"{deployment_info.git_repo}/{environment_name.lower()}",
-            environment_variables={"TF_IN_AUTOMATION": "true"},
+            environment_variables={
+                "TF_IN_AUTOMATION": "true",
+                **{
+                    f"TF_VAR_{variable}": value
+                    for variable, value in step_values.get("variables", {})
+                },
+                **{
+                    env
+                    for env, value in step_values.get("environment", {})
+                },
+            },
         )
     }
 
