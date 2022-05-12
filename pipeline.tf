@@ -115,3 +115,10 @@ data "aws_iam_policy_document" "lambda_allow_sfn_pass" {
         resources = [aws_iam_role.sfn.arn]
     }
 }
+
+
+module "metrics" {
+  source = "github.com/nsbno/terraform-aws-pipeline-metrics?ref=9b46735f"
+
+  name_prefix = var.name_prefix
+}
