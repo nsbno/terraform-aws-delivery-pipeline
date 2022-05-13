@@ -87,6 +87,25 @@ steps:
   - # [...]
 ----
 
+== Deploy your terraform
+
+Deploy terraform in a single step using the terraform
+
+[source, yaml]
+----
+steps:
+  - deploy_terraform:
+      # Set your terraform version
+      version: 1.0.0
+      # Send terraform some variables
+      variables:
+        some-variable: "my-amazing-value"
+      # And if you need to, you can also specify environment variables
+      environment:
+        AWS_REGION: "us-east-1"
+
+----
+
 == Migrate from old pipeline
 
 If you're using the old pipeline setup, we have a guide to follow to get you up to date with this one!
