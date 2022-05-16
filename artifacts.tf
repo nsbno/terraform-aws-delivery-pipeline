@@ -8,6 +8,34 @@ resource "aws_s3_bucket" "artifacts" {
     bucket = "${var.account_id}-${var.name_prefix}-delivery-pipeline-artifacts"
 }
 
+data "aws_iam_policy_document" "allow_account_access" {
+  statement {
+    principals {
+      type        = "AWS"
+      identifiers = [
+        var.deployment_accounts.test,
+        var.deployment_accounts.stage,
+        var.deployment_accounts.prod,
+      ]
+    }
+
+    actions = [
+      "s3:ListBucket",
+      "s3:GetObject*",
+    ]
+
+    resources = [
+      aws_s3_bucket.artifacts.arn,
+      "${aws_s3_bucket.artifacts.arn}/*",
+    ]
+  }
+}
+
+resource "aws_s3_bucket_policy" "allow_account_access" {
+  bucket = aws_s3_bucket.artifacts.id
+  policy = data.aws_iam_policy_document.allow_account_access.json
+}
+
 resource "aws_security_group" "deployment_task" {
   name  = "deployment_task"
   description = "Rules for deployment tasks"
