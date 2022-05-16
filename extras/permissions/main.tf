@@ -52,7 +52,10 @@ data "aws_iam_policy_document" "ssm_for_set_version" {
     statement {
         effect    = "Allow"
         actions   = ["ssm:PutParameter"]
-        resources = ["arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/${var.name_prefix}/*"]
+        resources = [
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/${var.name_prefix}/*",
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/artifacts/*",
+        ]
     }
 }
 
