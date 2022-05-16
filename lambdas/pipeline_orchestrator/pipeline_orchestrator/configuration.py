@@ -199,7 +199,7 @@ def _create_deployment_steps(
                 # https://github.com/aws/aws-step-functions-data-science-sdk-python/issues/184
                 f"apk add gcc g++ make",
 
-                f"cd terraform/{environment_name.lower()}",
+                f"cd {step_values.get('directory', 'terraform')}/{environment_name.lower()}",
                 f"terraform init -no-color",
                 f"terraform apply -no-color -auto-approve",
             ]),

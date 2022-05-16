@@ -87,6 +87,21 @@ steps:
   - # [...]
 ----
 
+=== Deploy Terraform
+
+Deploy terraform by adding a single step to your configuration!
+
+
+[source,yaml]
+----
+steps:
+  # Activate automatic version bumping in the pipeline
+  - deploy_terraform:
+      version: 1.0.0
+      directory: environments  # Optional: Default is `terraform`
+----
+
+
 == Migrate from old pipeline
 
 If you're using the old pipeline setup, we have a guide to follow to get you up to date with this one!
