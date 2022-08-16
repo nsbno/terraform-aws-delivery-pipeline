@@ -118,7 +118,7 @@ data "aws_iam_policy_document" "lambda_allow_sfn_pass" {
 
 
 module "metrics" {
-  source = "github.com/nsbno/terraform-aws-pipeline-metrics?ref=9b46735f"
+  source = "github.com/nsbno/terraform-aws-pipeline-metrics?ref=0.2.0"
 
   name_prefix = var.name_prefix
 }
