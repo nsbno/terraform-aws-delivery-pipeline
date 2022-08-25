@@ -34,10 +34,13 @@ data "aws_subnet_ids" "subnets" {
  *
  * This is the boilerplate for creating the deployment pipeline.
  */
-module "deploymet_pipeline" {
+module "deployment_pipeline" {
   source = "../../../"
 
-  name_prefix         = local.name_prefix
+  name_prefix = local.name_prefix
+
+  central_accounts    = ["1234567890"]
+  account_id          = local.service_account_id
   deployment_accounts = {
     # Infrademo accounts
     service = 689783162268
@@ -45,10 +48,11 @@ module "deploymet_pipeline" {
     stage   = 455398910694
     prod    = 184682413771
   }
-  deployment_role     = "${local.name_prefix}-trusted-deployment"
 
-  account_id = local.service_account_id
-  subnets    = data.aws_subnet_ids.subnets.ids
+  deployment_role = module.deployment_pipeline_permissions.deployment_role
+
+  vpc_id  = "vpc-088edf3000b91734f"
+  subnets = data.aws_subnet_ids.subnets.ids
 }
 
 
@@ -88,9 +92,9 @@ module "ci_machine_user" {
   allowed_s3_write_arns = [
     module.deployment_pipeline.artifact_bucket_arn
   ]
-  allowed_s3_read_arns  = []
-  allowed_ecr_arns      = []
-  ci_parameters_key     = aws_kms_alias.key-alias.id
+  allowed_s3_read_arns = []
+  allowed_ecr_arns     = []
+  ci_parameters_key    = aws_kms_alias.key-alias.id
 }
 
 # The CI must be able to trigger a deployment.
@@ -103,8 +107,8 @@ resource "aws_iam_user_policy" "machine_user_lambda" {
 data "aws_iam_policy_document" "machine_user_lambda" {
   statement {
     effect    = "Allow"
-    actions   = ["lambda:InvokeFunction"]
-    resources = [module.deployment_pipeline.orchestrator_lambda_arn]
+    actions   = ["sns:Publish"]
+    resources = [module.deployment_pipeline.in]
   }
 }
 

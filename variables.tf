@@ -1,21 +1,10 @@
-variable "account_id" {
-    description = "The ID of the account this is being published to"
-    type = string
-}
-
 variable "name_prefix" {
     type = string
 }
 
-variable "tags" {
-    type = map(string)
-    default = {}
-}
-
-variable "docker_image" {
-    description = "The docker image that the ECS task will be running (without a version number)"
-    type = string
-    default = "vydev/terraform"
+variable "account_id" {
+  description = "The ID of the account this is being published to"
+  type = string
 }
 
 variable "deployment_accounts" {
@@ -26,6 +15,11 @@ variable "deployment_accounts" {
         stage = string
         prod = string
     })
+}
+
+variable "central_accounts" {
+  description = "A list of the central account(s) that can start a deployment."
+  type = list(string)
 }
 
 variable "deployment_role" {
