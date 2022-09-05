@@ -200,7 +200,7 @@ locals {
     # The role that the pipeline will assume into each account
     deploy_role = var.deployment_role
     # The accounts to deploy to
-    deployment_accounts = jsonencode(var.deployment_accounts)
+    deploy_accounts = jsonencode(var.deployment_accounts)
 
     # Info about where we're running the task
     execution_role_arn = aws_iam_role.execution_role.arn
