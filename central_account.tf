@@ -232,8 +232,8 @@ resource "aws_ssm_parameter" "account_information" {
 data "aws_iam_policy_document" "allow_read_account_information" {
   statement {
     resources = [
-      "arn:aws:ssm:eu-west-1::parameter/${local.ssm_base_path}",
-      "arn:aws:ssm:eu-west-1::parameter/${local.ssm_base_path}/*",
+      "arn:aws:ssm:eu-west-1:${data.aws_caller_identity.current.account_id}:parameter/${local.ssm_base_path}",
+      "arn:aws:ssm:eu-west-1:${data.aws_caller_identity.current.account_id}:parameter/${local.ssm_base_path}/*",
     ]
     actions = [
       "ssm:GetParameter",
