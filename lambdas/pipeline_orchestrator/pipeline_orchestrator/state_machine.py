@@ -134,8 +134,8 @@ def state_machine_builder(
 
     main_flow = states.Chain()
 
-    failed_deployment = states.Fail(state_id="Deployment Failed")
-    success_deployment = states.Succeed(state_id="Deployment Succeeded")
+    failed_deployment = states.Fail(state_id="Deploy Prod Failed")
+    success_deployment = states.Succeed(state_id="Deploy Prod")
 
     main_flow.append(get_latest_versions)
 
