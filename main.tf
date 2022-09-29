@@ -6,6 +6,10 @@ terraform {
       source = "hashicorp/aws"
       version = ">= 4.9.0"
     }
+    vy = {
+      source = "nsbno/vy"
+      version = "0.0.14"
+    }
   }
 }
 

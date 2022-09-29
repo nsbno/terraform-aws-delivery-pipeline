@@ -186,6 +186,18 @@ resource "aws_cloudwatch_event_target" "realtime" {
 }
 
 /*
+ * == Attach to the central pipeline
+ *
+ * This notifies the central account of our topics, so it can subscribe to them.
+ */
+resource "vy_deployment_account" "this" {
+  topics = {
+    trigger_events = aws_sns_topic.incoming_triggers.arn
+    pipeline_events = aws_sns_topic.outgoing_messages.arn
+  }
+}
+
+/*
  * == Account Information
  *
  * This is info about the account that will be used by the pipeline.
