@@ -66,7 +66,7 @@ def _environment(name: str, jobs: list[DeploymentStep]) -> states.Chain:
     :returns: A chain with all the jobs from the given jobs list.
     """
     environment = states.Chain()
-    error_catcher = states.Pass(state_id=f"{name} - Error Catcher")
+    error_catcher = states.Pass(state_id=f"Catch {name.capitalize()} Errors")
     catch_error = states.Catch(error_equals=["States.ALL"], next_step=error_catcher)
 
     job_type_functions = {
@@ -78,6 +78,14 @@ def _environment(name: str, jobs: list[DeploymentStep]) -> states.Chain:
         ),
     }
     for job in jobs:
+        # NOTE: Temporary fix to make it the same as previous versions of the pipeline.
+        if job.name == "Deploy Terraform":
+            state_id = f"Deploy {name.capitalize()}"
+        elif job.name == "Bump Versions":
+            state_id = f"{job.name} in {name.capitalize()}"
+        else:
+            state_id = f"{name} - {job.name}"
+
         step = job_type_functions[job.type](
             state_id=f"{name} - {job.name}",
             parameters=job.parameters
