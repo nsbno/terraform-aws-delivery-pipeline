@@ -120,6 +120,23 @@ resource "aws_iam_role_policy" "sfn_sqs" {
   policy = data.aws_iam_policy_document.sfn_sqs.json
 }
 
+data "aws_iam_policy_document" "sfn_api_gw" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "execute-api:Invoke",
+    ]
+    resources = [
+      "*"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "sfn_api_gw" {
+  role = aws_iam_role.sfn.id
+  policy = data.aws_iam_policy_document.sfn_api_gw.json
+}
+
 module "metrics" {
   source = "github.com/nsbno/terraform-aws-pipeline-metrics?ref=0.2.0"
 
