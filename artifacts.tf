@@ -8,6 +8,14 @@ resource "aws_s3_bucket" "artifacts" {
     bucket = "${var.account_id}-${var.name_prefix}-delivery-pipeline-artifacts"
 }
 
+resource "aws_s3_bucket_versioning" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
 data "aws_iam_policy_document" "allow_account_access" {
   statement {
     principals {
