@@ -191,10 +191,7 @@ resource "aws_cloudwatch_event_target" "realtime" {
  * This notifies the central account of our topics, so it can subscribe to them.
  */
 resource "vy_deployment_account" "this" {
-  topics = {
-    trigger_events = aws_sns_topic.incoming_triggers.arn
-    pipeline_events = aws_sns_topic.outgoing_messages.arn
-  }
+  slack_channel = var.slack_channel
 }
 
 /*
@@ -224,12 +221,6 @@ locals {
     log_group = aws_cloudwatch_log_group.ecs.name
 
     step_function_role_arn = aws_iam_role.sfn.arn
-
-    # TODO: These are mostly hard coded based on the previous setup.
-    set_version_lambda_arn = module.set_version.function_name
-    set_version_role = "${var.name_prefix}-trusted-set-version"
-    set_version_ssm_prefix = "artifacts"
-    set_version_artifact_bucket = aws_s3_bucket.artifacts.bucket
   }
 }
 

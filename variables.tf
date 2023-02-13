@@ -7,6 +7,11 @@ variable "account_id" {
   type = string
 }
 
+variable "slack_channel" {
+  description = "A slack channel you send notifications to"
+  type = string
+}
+
 variable "deployment_accounts" {
     description = "A list of all accounts that we can deploy to"
     type = object({
