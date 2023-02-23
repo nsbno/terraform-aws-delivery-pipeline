@@ -103,19 +103,39 @@ data "aws_iam_policy_document" "sfn_lambda" {
     }
 }
 
-resource "aws_iam_role_policy" "lambda_pass_role" {
-    role = aws_iam_role.lambda_ecs_trigger.id
-    policy = data.aws_iam_policy_document.lambda_allow_sfn_pass.json
+data "aws_iam_policy_document" "sfn_sqs" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "sqs:SendMessage",
+    ]
+    resources = [
+      "*"
+    ]
+  }
 }
 
-data "aws_iam_policy_document" "lambda_allow_sfn_pass" {
-    statement {
-        effect = "Allow"
-        actions = ["iam:PassRole"]
-        resources = [aws_iam_role.sfn.arn]
-    }
+resource "aws_iam_role_policy" "sfn_sqs" {
+  role = aws_iam_role.sfn.id
+  policy = data.aws_iam_policy_document.sfn_sqs.json
 }
 
+data "aws_iam_policy_document" "sfn_api_gw" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "execute-api:Invoke",
+    ]
+    resources = [
+      "*"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "sfn_api_gw" {
+  role = aws_iam_role.sfn.id
+  policy = data.aws_iam_policy_document.sfn_api_gw.json
+}
 
 module "metrics" {
   source = "github.com/nsbno/terraform-aws-pipeline-metrics?ref=0.2.0"
