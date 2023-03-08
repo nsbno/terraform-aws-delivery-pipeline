@@ -1,6 +1,10 @@
 data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
 
+resource "vy_environment_account" "this" {
+  owner = var.service_account_id
+}
+
 resource "aws_iam_role" "deployment" {
     name               = "${var.name_prefix}-trusted-deployment"
     assume_role_policy = data.aws_iam_policy_document.trusted_account_deployment_assume.json
