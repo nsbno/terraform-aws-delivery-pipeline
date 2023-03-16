@@ -126,23 +126,6 @@ resource "aws_iam_role_policy" "allow_read_artifacts" {
   policy = data.aws_iam_policy_document.allow_read_artifacts.json
 }
 
-/*
- * == Incoming Triggers
- *
- * Triggers for starting the pipeline.
- */
-resource "aws_sns_topic" "incoming_triggers" {
-  name = "deployment-incoming-triggers.fifo"
-
-  fifo_topic                  = true
-  content_based_deduplication = true
-}
-
-resource "aws_sns_topic_policy" "incoming_triggers" {
-  arn    = aws_sns_topic.incoming_triggers.arn
-  policy = data.aws_iam_policy_document.allow_subscription.json
-}
-
 
 /*
  * == Outgoing Messages

@@ -9,7 +9,3 @@ output "cluster_arn" {
 output "ecs_log_group_arn" {
   value = aws_cloudwatch_log_group.ecs.arn
 }
-
-output "incomming_triggers_arn" {
-  value = aws_sns_topic.incoming_triggers.arn
-}
