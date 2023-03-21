@@ -16,7 +16,7 @@ data "aws_iam_policy_document" "allow_subscription" {
   statement {
     principals {
       type        = "AWS"
-      identifiers = var.central_accounts
+      identifiers = [var.central_account]
     }
 
     resources = ["*"]
@@ -28,7 +28,7 @@ data "aws_iam_policy_document" "allow_central_account_assume" {
   statement {
     principals {
       type        = "AWS"
-      identifiers = var.central_accounts
+      identifiers = [var.central_account]
     }
 
     actions = ["sts:AssumeRole"]
@@ -132,15 +132,6 @@ resource "aws_iam_role_policy" "allow_read_artifacts" {
  *
  * A way for the deployment agents to figure out what has changed.
  */
-resource "aws_sns_topic" "outgoing_messages" {
-  name = "deployment-outgoing-messages"
-}
-
-resource "aws_sns_topic_policy" "outgoing_messages" {
-  arn    = aws_sns_topic.outgoing_messages.arn
-  policy = data.aws_iam_policy_document.allow_subscription.json
-}
-
 resource "aws_cloudwatch_event_rule" "sfn_status" {
   description   = "Triggers when a State Machine changes status"
   event_pattern = <<-EOF
@@ -163,8 +154,8 @@ resource "aws_cloudwatch_event_rule" "sfn_status" {
   EOF
 }
 
-resource "aws_cloudwatch_event_target" "realtime" {
-  arn  = aws_sns_topic.outgoing_messages.arn
+resource "aws_cloudwatch_event_target" "sfn_events" {
+  arn  = "arn:aws:sqs:eu-west-1:${var.central_account}:pipeline-status-reporter-status-update-from-step-functions"
   rule = aws_cloudwatch_event_rule.sfn_status.name
 }
 

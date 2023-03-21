@@ -22,9 +22,9 @@ variable "deployment_accounts" {
     })
 }
 
-variable "central_accounts" {
-  description = "A list of the central account(s) that can start a deployment."
-  type = list(string)
+variable "central_account" {
+  description = "The central account that can start a deployment."
+  type = string
 }
 
 variable "deployment_role" {

@@ -39,7 +39,7 @@ module "deployment_pipeline" {
 
   name_prefix = local.name_prefix
 
-  central_accounts    = ["1234567890"]
+  central_account    = "1234567890"
   account_id          = local.service_account_id
   deployment_accounts = {
     # Infrademo accounts
