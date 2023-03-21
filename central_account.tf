@@ -144,23 +144,23 @@ data "aws_iam_policy_document" "eventbridge_in_org_assume" {
   }
 }
 
-resource "aws_iam_role" "eventbridge_send_sqs_role" {
+resource "aws_iam_role" "eventbridge_send_cross_account" {
   name = "deployment-eventbridge-cross-account-role"
   assume_role_policy = data.aws_iam_policy_document.eventbridge_in_org_assume.json
 }
 
-data "aws_iam_policy_document" "eventbridge_send_message_to_sqs" {
+data "aws_iam_policy_document" "eventbridge_send_message_to_eventbridge" {
   statement {
     effect = "Allow"
-    actions = ["sqs:SendMessage"]
+    actions = ["events:PutEvents"]
 
     resources = ["*"]
   }
 }
 
-resource "aws_iam_role_policy" "eventbridge_send_message_to_sqs" {
-  role   = aws_iam_role.eventbridge_send_sqs_role.id
-  policy = data.aws_iam_policy_document.eventbridge_send_message_to_sqs.json
+resource "aws_iam_role_policy" "eventbridge_send_message_to_eventbridge" {
+  role   = aws_iam_role.eventbridge_send_cross_account.id
+  policy = data.aws_iam_policy_document.eventbridge_send_message_to_eventbridge.json
 }
 
 /*
@@ -191,8 +191,8 @@ resource "aws_cloudwatch_event_rule" "sfn_status" {
 resource "aws_cloudwatch_event_target" "sfn_events" {
   arn  = "arn:aws:events:eu-west-1:${var.central_account}:event-bus/cross-account-events"
   rule = aws_cloudwatch_event_rule.sfn_status.name
-#
-#  role_arn = aws_iam_role.eventbridge_send_sqs_role.arn
+
+  role_arn = aws_iam_role.eventbridge_send_cross_account.arn
 }
 
 /*
