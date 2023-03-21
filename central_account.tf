@@ -132,6 +132,40 @@ resource "aws_iam_role_policy" "allow_read_artifacts" {
  *
  * A way for the deployment agents to figure out what has changed.
  */
+data "aws_iam_policy_document" "eventbridge_in_org_assume" {
+  statement {
+    effect = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "eventbridge_send_sqs_role" {
+  name = "deployment-eventbridge-cross-account-role"
+  assume_role_policy = data.aws_iam_policy_document.eventbridge_in_org_assume.json
+}
+
+data "aws_iam_policy_document" "eventbridge_send_message_to_sqs" {
+  statement {
+    effect = "Allow"
+    actions = ["sqs:SendMessage"]
+
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "eventbridge_send_message_to_sqs" {
+  role   = aws_iam_role.eventbridge_send_sqs_role.id
+  policy = data.aws_iam_policy_document.eventbridge_send_message_to_sqs.json
+}
+
+/*
+ * === Configuration of eventbridge rules
+ */
 resource "aws_cloudwatch_event_rule" "sfn_status" {
   description   = "Triggers when a State Machine changes status"
   event_pattern = <<-EOF
@@ -158,7 +192,7 @@ resource "aws_cloudwatch_event_target" "sfn_events" {
   arn  = "arn:aws:sqs:eu-west-1:${var.central_account}:pipeline-status-reporter-status-update-from-step-functions"
   rule = aws_cloudwatch_event_rule.sfn_status.name
 
-  role_arn = "arn:aws:iam::${var.central_account}:role/pipeline-status-reporter-eventbridge-cross-account-role"
+  role_arn = aws_iam_role.eventbridge_send_sqs_role.arn
 }
 
 /*
