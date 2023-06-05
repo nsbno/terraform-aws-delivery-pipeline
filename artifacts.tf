@@ -5,7 +5,7 @@
  * This also triggers the pipelines.
  */
 resource "aws_s3_bucket" "artifacts" {
-    bucket = "${var.account_id}-${var.name_prefix}-delivery-pipeline-artifacts"
+  bucket = "${var.account_id}-${var.name_prefix}-delivery-pipeline-artifacts"
 }
 
 resource "aws_s3_bucket_versioning" "artifacts" {
@@ -20,11 +20,13 @@ data "aws_iam_policy_document" "allow_account_access" {
   statement {
     principals {
       type        = "AWS"
-      identifiers = [
-        var.deployment_accounts.test,
-        var.deployment_accounts.stage,
-        var.deployment_accounts.prod,
-      ]
+      identifiers = concat(
+        var.deployment_accounts.dev != null ? [var.deployment_accounts.dev] : [],
+        [
+          var.deployment_accounts.test,
+          var.deployment_accounts.stage,
+          var.deployment_accounts.prod,
+        ])
     }
 
     actions = [

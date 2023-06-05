@@ -16,6 +16,7 @@ variable "deployment_accounts" {
     description = "A list of all accounts that we can deploy to"
     type = object({
         service = string
+        dev = optional(string)
         test = string
         stage = string
         prod = string
