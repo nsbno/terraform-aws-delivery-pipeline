@@ -136,9 +136,3 @@ resource "aws_iam_role_policy" "sfn_api_gw" {
   role = aws_iam_role.sfn.id
   policy = data.aws_iam_policy_document.sfn_api_gw.json
 }
-
-module "metrics" {
-  source = "github.com/nsbno/terraform-aws-pipeline-metrics?ref=0.5.0"
-
-  central_account = var.central_account
-}
