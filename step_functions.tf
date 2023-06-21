@@ -138,7 +138,7 @@ resource "aws_iam_role_policy" "sfn_api_gw" {
 }
 
 module "metrics" {
-  source = "github.com/nsbno/terraform-aws-pipeline-metrics?ref=0.2.0"
+  source = "github.com/nsbno/terraform-aws-pipeline-metrics?ref=0.5.0"
 
-  name_prefix = var.name_prefix
+  central_account = var.central_account
 }
