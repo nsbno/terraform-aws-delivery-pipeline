@@ -17,8 +17,8 @@ variable "deployment_accounts" {
     type = object({
         service = string
         dev = optional(string)
-        test = string
-        stage = string
+        test = optional(string)
+        stage = optional(string)
         prod = string
     })
 }

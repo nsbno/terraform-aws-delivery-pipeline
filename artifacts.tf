@@ -22,9 +22,9 @@ data "aws_iam_policy_document" "allow_account_access" {
       type        = "AWS"
       identifiers = concat(
         var.deployment_accounts.dev != null ? [var.deployment_accounts.dev] : [],
+        var.deployment_accounts.test != null ? [var.deployment_accounts.test] : [],
+        var.deployment_accounts.stage != null ? [var.deployment_accounts.stage] : [],
         [
-          var.deployment_accounts.test,
-          var.deployment_accounts.stage,
           var.deployment_accounts.prod,
         ])
     }
