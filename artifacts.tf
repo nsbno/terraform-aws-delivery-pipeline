@@ -8,6 +8,12 @@ resource "aws_s3_bucket" "artifacts" {
   bucket = "${var.account_id}-${var.name_prefix}-delivery-pipeline-artifacts"
 }
 
+resource "aws_ssm_parameter" "this" {
+  name = "/__deployment__/config/artifact-bucket"
+  type = "string"
+  value = aws_s3_bucket.artifacts.bucket
+}
+
 resource "aws_s3_bucket_versioning" "artifacts" {
   bucket = aws_s3_bucket.artifacts.id
 
