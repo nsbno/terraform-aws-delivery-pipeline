@@ -10,7 +10,7 @@ resource "aws_s3_bucket" "artifacts" {
 
 resource "aws_ssm_parameter" "this" {
   name = "/__deployment__/config/artifact-bucket"
-  type = "string"
+  type = "String"
   value = aws_s3_bucket.artifacts.bucket
 }
 
